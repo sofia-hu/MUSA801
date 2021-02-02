@@ -1,0 +1,17 @@
+---
+title: "PhillyFire"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is a project manage plan for MUSA801:
+![Project Plan](plan.png)
+
+```{r}
+
+```
