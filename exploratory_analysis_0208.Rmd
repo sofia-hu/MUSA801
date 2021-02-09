@@ -1,0 +1,76 @@
+---
+title: "EDA0208"
+author: "ZIRUI CHEN"
+date: "2/9/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+This part is going to analyze the internal features of property
+
+## Set up
+
+```{r import data, echo = TRUE, results = FALSE, message=FALSE, warning=FALSE}
+library(stringr)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+fire <- read_csv("fire_dataset.csv")
+property <- read_csv("opa_properties_public.csv")
+
+```
+
+## Data wrangling
+
+```{r clean data, echo = TRUE, results = FALSE, message=FALSE, warning=FALSE}
+#join address
+fire$location <- paste(ifelse(is.na(fire$number)==FALSE,fire$number,''),
+                           ifelse(is.na(fire$st_prefix)==FALSE,fire$st_prefix,''),
+                           ifelse(is.na(fire$street)==FALSE,fire$street,''),
+                           ifelse(is.na(fire$st_type)==FALSE,fire$st_type,''), sep = " ")
+#delete extra space
+fire$location <- str_squish(fire$location) 
+
+#join the fire location and property dataframe
+fire_property <- left_join(fire,property,by='location')
+
+#drop na and duplicate
+fire_property_trim <- fire_property%>%
+  filter(is.na(fire_property$parcel_number) == FALSE)
+
+fire_property_trim <- fire_property_trim %>% 
+  distinct(category_code, fuel,interior_condition,quality_grade, total_area,year_built,zoning, .keep_all = TRUE)
+
+fire_property_trim <-mutate(fire_property_trim, category = case_when(
+  category_code == 1  ~ "Residential",
+  category_code == 2  ~ "Hotels and Apartments",
+  category_code == 3  ~ "Store with Dwelling",
+  category_code == 4  ~ "Commercial",
+  category_code == 5  ~ "Industrial",
+  category_code == 6  ~ "Vacant Land"))
+```
+
+## Exploratory analysis
+
+```{r eda, echo = TRUE, results = FALSE, message=FALSE, warning=FALSE}
+#category
+ggplot(fire_property_trim) + 
+  geom_bar(aes(x = category),fill="#69b3a2",color="#e9ecef", alpha=0.9) +
+  theme(axis.text.x = element_text(angle = 20))
+
+#zoning
+ggplot(fire_property_trim) + 
+  geom_bar(aes(x = zoning),fill="#69b3a2",color="#e9ecef", alpha=0.9) +
+  theme(axis.text.x = element_text(angle = 45))
+
+##area
+ggplot(fire_property_trim,aes(x = total_area)) + 
+  geom_histogram(fill="#69b3a2",color="#e9ecef", alpha=0.9) +
+  scale_x_continuous(breaks = seq(0, 6000, 500), lim = c(0, 6075.6))
+
+```
+
