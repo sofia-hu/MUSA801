@@ -74,3 +74,27 @@ ggplot(fire_property_trim,aes(x = total_area)) +
 
 ```
 
+## Request OPA number
+
+```{r OPA, echo = TRUE, results = FALSE, message=FALSE, warning=FALSE}
+fire$location2 <- paste(ifelse(is.na(fire$number)==FALSE,fire$number,''),
+                       ifelse(is.na(fire$st_prefix)==FALSE,fire$st_prefix,''),
+                       "%20",
+                       ifelse(is.na(fire$street)==FALSE,fire$street,''),
+                       "%20",
+                       ifelse(is.na(fire$st_type)==FALSE,fire$st_type,''), sep = "")
+
+
+for (i in seq_along(fire)) {
+  address  <- fire$location2[[i]]
+  base_url <- "http://api.phila.gov/ais_doc/v1/"
+  endpoint <- "search/"
+  key      <- "?gatekeeperKey=6ba4de64d6ca99aa4db3b9194e37adbf"
+  url <- paste(base_url, endpoint, address, key, sep="")
+  response <- httr::GET(url)
+  tidy_res <- httr::content(response, simplifyVector=TRUE)
+  fire$opa[[i]] <- tidy_res$features$properties$opa_account_num
+}
+
+```
+
