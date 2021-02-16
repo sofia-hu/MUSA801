@@ -119,7 +119,10 @@ for (i in 710:730) {
   response <- httr::GET(url)
   tidy_res <- httr::content(response, simplifyVector=TRUE)
   if (length(tidy_res) != 4){
-    opa_num <-  tidy_res$features$properties$opa_account_num[1]
+    if(length(tidy_res$features$properties$opa_account_num)==2)
+      opa_num <-  tidy_res$features$properties$opa_account_num[2]
+    else
+      opa_num <-  tidy_res$features$properties$opa_account_num[1]
   # fireData$opa[[i]] <- tidy_res$features$properties$opa_account_num[1]
     if(is.null(opa_num)){
       opa_num <- "OPA IS NULL"
