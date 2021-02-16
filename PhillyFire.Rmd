@@ -37,5 +37,252 @@ Zirui Chen, Haoheng Tang - API tasks
 ![Project Plan](plan.png)
 
 ```{r}
+library(tidyverse)
+library(httr)
+library(dplyr)
+
+# Request OPA for a building-----------------------------------------------
+base_url <- "http://api.phila.gov/ais_doc/v1/"
+endpoint <- "search/"
+#address  <- "4701%20PINE%20ST"
+#address  <- "4412E%20WINGOHOCKING%20ST"
+#address <- "1955%20GRANITE%20ST"
+address <- "1234%20market%20st"
+#address <- "1336%20FRIENDSHIP%20ST"
+
+#address  <-"2201N%20BROAD%20ST"
+key      <- "?gatekeeperKey=6ba4de64d6ca99aa4db3b9194e37adbf"
+url <- paste(base_url, endpoint, address, key, sep="")
+
+# response <- httr::GET("http://api.phila.gov/ais_doc/v1/search/1234%20market%20st?gatekeeperKey=6ba4de64d6ca99aa4db3b9194e37adbf")
+response <- httr::GET(url)
+tidy_res <- httr::content(response, simplifyVector=TRUE)
+length(tidy_res)
+
+glimpse(tidy_res$features)
+glimpse(tidy_res$features$properties)
+glimpse(tidy_res$features$geometry)
+glimpse(tidy_res$features$properties$opa_account_num)
+glimpse(tidy_res)
+tidy_res$features$properties$opa_account_num
+
+#Load data------------------------------------------------------------------
+library(readxl)
+fire <- read_excel("./data/fire.xlsx")
+
+library(stringr)
+
+  
+  
+fire1 = fire %>%
+  filter(addr_type ==1)
+
+fire1$address <- paste(ifelse(is.na(fire1$number)==FALSE,fire1$number,''),
+                       "%20",
+                       ifelse(is.na(fire1$st_prefix)==FALSE,fire1$st_prefix,''),
+                       "%20",
+                       ifelse(is.na(fire1$street)==FALSE,fire1$street,''),
+                       "%20",
+                       ifelse(is.na(fire1$st_type)==FALSE,fire1$st_type,''), sep = "")
+
+fire2 = fire %>%
+  filter(addr_type ==2)
+
+fire2$address <- paste(ifelse(is.na(fire2$xst_prefix)==FALSE,fire2$xst_prefix,''),
+                       ifelse(is.na(fire2$xstreet)==FALSE,fire2$xstreet,''),
+                       "%20",
+                       ifelse(is.na(fire2$xst_type)==FALSE,fire2$xst_type,''),
+                       "%20",
+                       ifelse(is.na(fire2$st_type)==FALSE,fire2$st_type,''), 
+                       "%20",
+                       "&",
+                       "%20",
+                       ifelse(is.na(fire2$st_prefix)==FALSE,fire2$st_prefix,''), 
+                       "%20",
+                       ifelse(is.na(fire2$st_prefix)==FALSE,fire2$st_type,''),
+                       sep = "")  
+
+fireData <- rbind(fire1, fire2)
+fireData$MUSA_ID <- paste0("MUSA_",1:nrow(fireData))
+
+api_res <- data.frame(matrix(nrow=nrow(fireData),ncol=1))
+colnames(api_res) <- "OPA_Num"
+api_res <- cbind(api_res,"MUSA_ID" = fireData$MUSA_ID)
+#Request OPA number for each building-------------------------------------
+for (i in 710:730) {
+  # cat(i,"\n")
+  address  <- fireData$address[[i]]
+  base_url <- "http://api.phila.gov/ais/v1/"
+  endpoint <- "search/"
+  key      <- "?gatekeeperKey=dc953bbc4ade9d00eabf5409f6d73d3e"
+  url <- paste(base_url, endpoint, address, key, sep="")
+  response <- httr::GET(url)
+  tidy_res <- httr::content(response, simplifyVector=TRUE)
+  if (length(tidy_res) != 4){
+    opa_num <-  tidy_res$features$properties$opa_account_num[1]
+  # fireData$opa[[i]] <- tidy_res$features$properties$opa_account_num[1]
+    if(is.null(opa_num)){
+      opa_num <- "OPA IS NULL"
+    } else if(nchar(opa_num)==0) {
+      opa_num <- "OPA IS ZERO LENGTH"
+    }
+    cat("Address",i,"OPA#:",opa_num,"\n")
+    api_res[i,"OPA_Num"] <- opa_num
+  }else{
+    cat("Address",i,"NO ADDRESS FOUND!","\n")
+    #fireData$opa[[i]] <- "NULL"
+    api_res[i,"OPA_Num"] <- "NONE FOUND"
+  }
+}
 
 ```
+
+## spatial
+
+```{r}
+library(tidyverse)
+library(sf)
+library(QuantPsyc)
+library(RSocrata)
+library(viridis)
+library(caret)
+library(spatstat)
+library(spdep)
+library(FNN)
+library(grid)
+library(gridExtra)
+library(knitr)
+library(kableExtra)
+library(tidycensus)
+
+mapTheme <- function(base_size = 12) {
+  theme(
+    text = element_text( color = "black"),
+    plot.title = element_text(size = 14,colour = "black"),
+    plot.subtitle=element_text(face="italic"),
+    plot.caption=element_text(hjust=0),
+    axis.ticks = element_blank(),
+    panel.background = element_blank(),axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(colour = "black", fill=NA, size=2)
+  )
+}
+```
+
+
+
+```{r}
+limit <- 
+  st_read("./data/City_Limits-shp/city_limits.shp") %>%
+  st_transform(2272)
+
+ggplot() + 
+  geom_sf(data = limit)
+```
+
+
+
+```{r}
+fishnet <- 
+  st_make_grid(limit, cellsize = 1000) %>%
+  st_sf()
+
+fishnet <- 
+  fishnet[limit,] %>%
+  mutate(uniqueID = rownames(.)) %>%
+  dplyr::select(uniqueID)
+
+ggplot() + 
+  geom_sf(data = fishnet)
+```
+
+```{r}
+library(readxl)
+```
+
+
+```{r}
+fire <- 
+  read_excel("./data/fire.xlsx")%>%
+  #na.omit %>%
+  #mutate(latitude = as.numeric(latitude),
+  #      longitude = as.numeric(longitude)) %>% 
+  #filter(latitude > 0 & 
+  #         longitude > 0) %>%
+  # dplyr::select(Y = latitude, X = longitude) %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326, agr = "constant")%>%
+  st_set_crs(4326) %>%
+  st_transform(2272)
+
+fire <- 
+  st_intersection(fire, limit)
+
+ggplot() + 
+  geom_sf(data = limit) +
+  geom_sf(data = fire, colour="red", size=0.1, show.legend = "point") +
+  labs(title= "Fire, Philadelphia") +
+  mapTheme()
+```
+
+```{r}
+fire_net <- 
+  fire %>% 
+  dplyr::select() %>% 
+  mutate(countfire = 1) %>% 
+  aggregate(., fishnet, sum) %>%
+  mutate(countfire = ifelse(is.na(countfire), 0, countfire),
+         uniqueID = rownames(.),
+         cvID = sample(round(nrow(fishnet) / 24), size=nrow(fishnet), replace = TRUE))
+
+ggplot() +
+  geom_sf(data = fire_net, aes(fill = countfire)) +
+  scale_fill_viridis() +
+  labs(title = "Count of fires for the fishnet") +
+  mapTheme()
+```
+
+```{r}
+type <- fire$descript barplot(prop.table(table(animals)))
+hist(type)
+```
+
+
+```{r}
+complaints <- 
+  st_read("./data/complaints.csv")%>%
+  filter(complaintcodename == 'VACANT HOUSE') %>%
+  st_as_sf(coords = c("lng", "lat"), crs = 4326, agr = "constant")%>%
+  st_set_crs(4326) %>%
+  st_transform(2272)
+
+ggplot() + 
+  geom_sf(data = chicagoBoundary) +
+  geom_sf(data = damage, colour="red", size=0.1, show.legend = "point") +
+  labs(title= "complaints") +
+  mapTheme()
+```
+
+```{r}
+fire_building <- 
+  fire %>%
+  filter(descript == 'Building fire')
+
+fire_building_net <- 
+  fire_building %>% 
+  dplyr::select() %>% 
+  mutate(countfire = 1) %>% 
+  aggregate(., fishnet, sum) %>%
+  mutate(countfire = ifelse(is.na(countfire), 0, countfire),
+         uniqueID = rownames(.),
+         cvID = sample(round(nrow(fishnet) / 24), size=nrow(fishnet), replace = TRUE))
+
+ggplot() +
+  geom_sf(data = fire_building_net, aes(fill = countfire)) +
+  scale_fill_viridis() +
+  labs(title = "Count of building fires for the fishnet") +
+  mapTheme()
+```
+
