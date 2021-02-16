@@ -108,7 +108,7 @@ fireData$MUSA_ID <- paste0("MUSA_",1:nrow(fireData))
 api_res <- data.frame(matrix(nrow=nrow(fireData),ncol=1))
 colnames(api_res) <- "OPA_Num"
 api_res <- cbind(api_res,"MUSA_ID" = fireData$MUSA_ID)
-#Request OPA number for each building-------------------------------------
+#Request OPA number for each address-------------------------------------
 for (i in 710:730) {
   # cat(i,"\n")
   address  <- fireData$address[[i]]
@@ -138,6 +138,32 @@ for (i in 710:730) {
   }
 }
 
+#Request parcel_id for each address-------------------------------------
+for (i in 1:1000) {
+  address  <- fireData$address[[i]]
+  base_url <- "http://api.phila.gov/ais/v1/"
+  endpoint <- "search/"
+  key      <- "?gatekeeperKey=dc953bbc4ade9d00eabf5409f6d73d3e"
+  url <- paste(base_url, endpoint, address, key, sep="")
+  response <- httr::GET(url)
+  tidy_res <- httr::content(response, simplifyVector=TRUE)
+  if (length(tidy_res) != 4){
+    if(length(tidy_res$features$properties$dor_parcel_id)==2)
+      parcel_id <-  tidy_res$features$properties$dor_parcel_id[2]
+    else
+      parcel_id <-  tidy_res$features$properties$dor_parcel_id[1]
+    if(is.null(parcel_id)){
+      parcel_id <- "parcel_id IS NULL"
+    } else if(nchar(parcel_id)==0) {
+      parcel_id <- "parcel_id IS ZERO LENGTH"
+    }
+    cat("Address",i,"parcel_id#:",parcel_id,"\n")
+    fireData[i,"parcel_id"] <- parcel_id
+  }else{
+    cat("Address",i,"NO ADDRESS FOUND!","\n")
+    fireData[i,"parcel_id"] <- "NONE FOUND"
+  }
+}
 ```
 
 ## spatial
