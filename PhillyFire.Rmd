@@ -89,17 +89,18 @@ fire2 = fire %>%
   filter(addr_type ==2)
 
 fire2$address <- paste(ifelse(is.na(fire2$xst_prefix)==FALSE,fire2$xst_prefix,''),
+                       ifelse(fire2$xst_prefix!='',"%20",''),
                        ifelse(is.na(fire2$xstreet)==FALSE,fire2$xstreet,''),
                        "%20",
                        ifelse(is.na(fire2$xst_type)==FALSE,fire2$xst_type,''),
                        "%20",
-                       ifelse(is.na(fire2$st_type)==FALSE,fire2$st_type,''), 
-                       "%20",
                        "&",
                        "%20",
                        ifelse(is.na(fire2$st_prefix)==FALSE,fire2$st_prefix,''), 
+                       ifelse(fire2$st_prefix!='',"%20",''),
+                       ifelse(is.na(fire2$street)==FALSE,fire2$street,''), 
                        "%20",
-                       ifelse(is.na(fire2$st_prefix)==FALSE,fire2$st_type,''),
+                       ifelse(is.na(fire2$st_type)==FALSE,fire2$st_type,''),
                        sep = "")  
 
 fireData <- rbind(fire1, fire2)
@@ -108,8 +109,9 @@ fireData$MUSA_ID <- paste0("MUSA_",1:nrow(fireData))
 api_res <- data.frame(matrix(nrow=nrow(fireData),ncol=1))
 colnames(api_res) <- "OPA_Num"
 api_res <- cbind(api_res,"MUSA_ID" = fireData$MUSA_ID)
+
 #Request OPA number for each address-------------------------------------
-for (i in 710:730) {
+for (i in 1:nrow(fireData)) {
   # cat(i,"\n")
   address  <- fireData$address[[i]]
   base_url <- "http://api.phila.gov/ais/v1/"
@@ -139,7 +141,7 @@ for (i in 710:730) {
 }
 
 #Request parcel_id for each address-------------------------------------
-for (i in 1:1000) {
+for (i in 1:nrow(fireData)) {
   address  <- fireData$address[[i]]
   base_url <- "http://api.phila.gov/ais/v1/"
   endpoint <- "search/"
