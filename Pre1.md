@@ -359,7 +359,8 @@ fireData$MUSA_ID <- paste0("MUSA_",1:nrow(fireData))
 
 ## Building Features
 
-(Zirui’s text)
+In this part, we looked into all the properties in philadelphia to examine whether there is a higher percentage of fire occurrence in the properties with certain features. 
+
 
 ``` r
 ###loading opa & property data
@@ -504,6 +505,14 @@ fire_property_trim  %>%
 ```
 
 ![](Pre1_files/figure-gfm/unnamed-chunk-4-4.png)<!-- -->
+
+As to property category, there is a higher percentage of fire occurrence in commercial, hotels and apartments properties.
+
+As to different zoning type. There is significantly higher propertion of fire occurred in the buildings of SPENT category. 
+
+Slightly more fire occurred in the properties which are sealed or structurally compromised.
+
+There is no significant difference for fire occurrence in properties with different age.
 
 ## Environment Factors
 
