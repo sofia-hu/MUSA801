@@ -38,6 +38,8 @@ Zirui Chen, Haoheng Tang - API tasks
 
 ```{r}
 library(tidyverse)
+library(ggplot2)
+library(stringr)
 library(httr)
 library(dplyr)
 
@@ -168,6 +170,81 @@ for (i in 1:nrow(fireData)) {
 }
 ```
 
+
+## EDA (interior features part)
+```{r}
+###loading opa & property data
+opa <- read_csv("Fire_OPA_Parcel.csv")
+property <- read_csv("opa_properties_public.csv")
+property <- rename(property, OPA_Num = parcel_number)
+
+fire_opa <- left_join(fireData,opa,by='MUSA_ID')
+property_fire <- left_join(property,fire_opa,by='OPA_Num')
+
+##Feature engineering
+fire_property_trim <-mutate(property_fire, category = case_when(
+  category_code == 1  ~ "Residential",
+  category_code == 2  ~ "Hotels and Apartments",
+  category_code == 3  ~ "Store with Dwelling",
+  category_code == 4  ~ "Commercial",
+  category_code == 5  ~ "Industrial",
+  category_code == 6  ~ "Vacant Land"))
+
+fire_property_trim <-mutate(fire_property_trim, interior = case_when(
+  interior_condition == 0  ~ "Not Applicable",
+  interior_condition == 2  ~ "New/Rehabbed",
+  interior_condition == 3  ~ "Above Average",
+  interior_condition == 4  ~ "Average",
+  interior_condition == 5  ~ "Below Average",
+  interior_condition == 6  ~ "Vacant",
+  interior_condition == 7  ~ "Sealed / Structurally Compromised"))
+
+fire_property_trim$year_built <- as.numeric(as.character(fire_property_trim$year_built))
+fire_property_trim <-mutate(fire_property_trim, year_built_cat = case_when(
+  year_built >= 1600 & year_built < 1800 ~ "1600-1800",
+  year_built >= 1800 & year_built < 1900 ~ "1800s",
+  year_built >= 1900 & year_built < 2000  ~ "1900s",
+  year_built >= 2000 & year_built < 2010  ~ "2000-2010",
+  year_built >= 2010 & year_built < 2020  ~ "2010-2020",
+  year_built < 1000 | year_built >2020 ~ "Unknown"))
+
+fire_property_trim <-mutate(fire_property_trim, isfire = case_when(
+  is.na(inci_no) == FALSE  ~ "Have fire",
+  is.na(inci_no) == TRUE  ~ "No fire"))
+
+###EDA plot
+#category
+fire_property_trim  %>% 
+  ggplot(aes(x = category, fill = isfire)) + 
+  geom_bar(position = position_fill()) + 
+  theme_classic() + 
+  labs(y = 'Percent') + 
+  coord_flip() #rotate the axis
+
+#zoning
+fire_property_trim  %>% 
+  ggplot(aes(x = zoning, fill = isfire)) + 
+  geom_bar(position = position_fill()) + 
+  theme_classic() + 
+  labs(y = 'Percent') + 
+  coord_flip() 
+
+#interior
+fire_property_trim  %>% 
+  ggplot(aes(x = interior, fill = isfire)) + 
+  geom_bar(position = position_fill()) + 
+  theme_classic() + 
+  labs(y = 'Percent') + 
+  coord_flip() 
+
+#year build
+fire_property_trim  %>% 
+  ggplot(aes(x = year_built_cat, fill = isfire)) + 
+  geom_bar(position = position_fill()) + 
+  theme_classic() + 
+  labs(y = 'Percent') + 
+  coord_flip() 
+```
 ## spatial
 
 ```{r}
