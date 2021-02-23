@@ -507,6 +507,7 @@ fire_property_trim  %>%
 ![](Pre1_files/figure-gfm/unnamed-chunk-4-4.png)<!-- -->
 
 As to property category, there is a higher percentage of fire occurrence in commercial, hotels and apartments properties.
+![category](category.jpg)
 
 As to different zoning type. There is significantly higher propertion of fire occurred in the buildings of SPENT category. 
 
