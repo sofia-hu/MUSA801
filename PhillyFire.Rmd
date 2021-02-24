@@ -7,7 +7,7 @@ output: rmarkdown::github_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Philly Fire Risk Prediction
 1. What is the use case? Why is this important?
 
 Our tool targets the fire department and residents.
@@ -35,12 +35,73 @@ Zirui Chen, Haoheng Tang - API tasks
 
 4. Gantt chart:
 ![Project Plan](plan.png)
-
+### Load Packages
 ```{r}
 library(tidyverse)
+library(sf)
+library(QuantPsyc)
+library(RSocrata)
+library(viridis)
+library(caret)
+library(spatstat)
+library(spdep)
+library(FNN)
+library(grid)
+library(gridExtra)
+library(knitr)
+library(kableExtra)
+library(tidycensus)
+library(mapview)
 library(httr)
 library(dplyr)
+library(readxl)
+library(stringr)
+```
 
+
+### Standardizing the formatting
+```{r}
+mapTheme <- function(base_size = 12) {
+  theme(
+    text = element_text( color = "black"),
+    plot.title = element_text(size = 14,colour = "black"),
+    plot.subtitle=element_text(face="italic"),
+    plot.caption=element_text(hjust=0),
+    axis.ticks = element_blank(),
+    panel.background = element_blank(),axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(colour = "black", fill=NA, size=2)
+  )
+}
+
+plotTheme <- function(base_size = 12) {
+  theme(
+    text = element_text( color = "black"),
+    plot.title = element_text(size = 14,colour = "black"),
+    plot.subtitle = element_text(face="italic"),
+    plot.caption = element_text(hjust=0),
+    axis.ticks = element_blank(),
+    panel.background = element_blank(),
+    panel.grid.major = element_line("grey80", size = 0.1),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(colour = "black", fill=NA, size=2),
+    strip.background = element_rect(fill = "grey80", color = "white"),
+    strip.text = element_text(size=12),
+    axis.title = element_text(size=12),
+    axis.text = element_text(size=10),
+    plot.background = element_blank(),
+    legend.background = element_blank(),
+    legend.title = element_text(colour = "black", face = "italic"),
+    legend.text = element_text(colour = "black", face = "italic"),
+    strip.text.x = element_text(size = 14)
+  )
+}
+```
+
+```{r}
 # Request OPA for a building-----------------------------------------------
 base_url <- "http://api.phila.gov/ais_doc/v1/"
 endpoint <- "search/"
@@ -65,15 +126,12 @@ glimpse(tidy_res$features$geometry)
 glimpse(tidy_res$features$properties$opa_account_num)
 glimpse(tidy_res)
 tidy_res$features$properties$opa_account_num
+```
 
+```{r}
 #Load data------------------------------------------------------------------
-library(readxl)
 fire <- read_excel("./data/fire.xlsx")
 
-library(stringr)
-
-  
-  
 fire1 = fire %>%
   filter(addr_type ==1)
 
@@ -109,7 +167,10 @@ fireData$MUSA_ID <- paste0("MUSA_",1:nrow(fireData))
 api_res <- data.frame(matrix(nrow=nrow(fireData),ncol=1))
 colnames(api_res) <- "OPA_Num"
 api_res <- cbind(api_res,"MUSA_ID" = fireData$MUSA_ID)
+```
 
+### API
+```{r}
 #Request OPA number for each address-------------------------------------
 for (i in 1:nrow(fireData)) {
   # cat(i,"\n")
@@ -166,43 +227,198 @@ for (i in 1:nrow(fireData)) {
     fireData[i,"parcel_id"] <- "NONE FOUND"
   }
 }
+
+#L&I API---------------------------------------------
+base_url <- "https://phl.carto.com/api/v2/"
+endpoint <- "sql"
+query    <- c("?q=SELECT%20*%20FROM%20violations%20WHERE%20opa_account_num%20=%20")
+opa_num  <- paste0("%27",871601760,"%27")
+url <- paste(base_url, endpoint, query, opa_num, sep="")
+
+response <- httr::GET(url)
+tidy_res <- httr::content(response, simplifyVector=TRUE)$rows
+
+tidy_res
 ```
+
+```{r}
+#L&I Data
+violation <- read_csv("./data/violations 2019-2020.csv")
+opa <- read_csv("./data/Fire_OPA_Parcel.csv")
+
+fireData <- merge(fireData, opa, by = "MUSA_ID")
+names(fireData)[names(fireData) =="OPA_Num"] <-"opa_account_num"
+```
+
+## Correlation
+
+### Code violation
+
+```{r}
+properties <- read_csv("./data/opa_properties_public.csv")
+
+properties %>%
+ggplot(.)+
+  geom_point(aes(x = lat, y = lng, 
+                 #color = MAE
+                 ), 
+             fill = "transparent", alpha = 0.4, size=0.1)+
+  scale_colour_viridis(direction = -1,
+  discrete = FALSE, option = "D")+
+  ylim(min(properties$lng), max(properties$lng))+
+  xlim(min(properties$lat), max(properties$lat))+
+  labs(title="Properties in Philadelphia")+
+  mapTheme()
+```
+
+
+```{r}
+names(properties)[names(properties) =="parcel_number"] <-"opa_account_num"
+
+properties_vio <- properties %>%
+  left_join(violation%>%
+              dplyr::select(-lng,-lat,-objectid), by = "opa_account_num")
+
+properties_fire_vio <- properties_vio %>%
+  left_join(fireData%>%
+              dplyr::select(-zip, -address, -latitude, -longitude ), by = "opa_account_num")
+```
+
+
+```{r}
+properties_fire_vio <- properties_fire_vio %>%
+  mutate(y = ifelse(is.na(MUSA_ID)==TRUE, "no fire", "fire"),
+         code_vio = ifelse(is.na(violationcode)==TRUE, "no code violation", "code violation")
+         )
+
+properties_fire_vio %>%
+    dplyr::select(y, code_vio) %>%
+    gather(Variable, value, -y) %>%
+    count(Variable, value, y) %>%
+      ggplot(., aes(value, n, fill = y)) +   
+        geom_bar(position = "dodge", stat="identity") +
+        #facet_wrap(~Variable, scales="free") +
+        #scale_fill_manual(values = palette2) +
+        labs(x="Code violation", y="Count",
+             title = "Feature associations with the likelihood of fire",
+             subtitle = "Code Violation") +
+        theme(axis.text.x = element_text(hjust = 1)) +
+        plotTheme()
+        
+```
+
+```{r}
+lkj <-properties_fire_vio %>%
+  mutate(violationcodetitle = ifelse(is.na(violationcodetitle)==TRUE, "NO CODE VIOLATION",violationcodetitle))%>%
+  group_by(violationcodetitle) %>%
+  summarize(count = n()) 
+
+violation_list <- list("CLIP VIOLATION NOTICE", "HIGH WEEDS-CUT", "EXTERIOR AREA WEEDS",
+                       "EXT A-VACANT LOT CLEAN/MAINTAI", "RUBBISH/GARBAGE EXTERIOR-OWNER",
+                       "VACANT STRUCTURE LICENSE", "EXTERIOR AREA SANITATION", 
+                       "VACANT STRUCTURE & LAND", "UNSAFE STRUCTURE", "INTERIOR SURFACES",
+                       "RUBBISH & GARBAGE", "LICENSE - RENTAL PROPERTY","VACANT STRUCTURE AND LAND")
+```
+
+```{r}
+properties_fire_vio %>%
+    filter(violationcodetitle == "CLIP VIOLATION NOTICE" |
+          violationcodetitle == "HIGH WEEDS-CUT" |
+          violationcodetitle == "EXTERIOR AREA WEEDS" |
+          violationcodetitle == "EXT A-VACANT LOT CLEAN/MAINTAI" |
+          violationcodetitle == "RUBBISH/GARBAGE EXTERIOR-OWNER" |
+          violationcodetitle == "VACANT STRUCTURE LICENSE" |
+          violationcodetitle == "EXTERIOR AREA SANITATION" |
+          violationcodetitle == "VACANT STRUCTURE & LAND" |
+          violationcodetitle == "UNSAFE STRUCTURE" |
+          violationcodetitle == "INTERIOR SURFACES" |
+          violationcodetitle == "RUBBISH & GARBAGE" |
+          violationcodetitle == "LICENSE - RENTAL PROPERTY" |
+          violationcodetitle == "VACANT STRUCTURE AND LAND"
+           )%>%
+    dplyr::select(y, violationcodetitle) %>%
+    gather(Variable, value, -y) %>%
+    count(Variable, value, y) %>%
+      ggplot(., aes(value, n, fill = y)) +   
+        geom_bar(position = "dodge", stat="identity") +
+        #facet_wrap(~Variable, scales="free") +
+        #scale_fill_manual(values = palette2) +
+        labs(x="Violation code title", y="Count",
+             title = "Feature associations with the likelihood of fire",
+             subtitle = "Code Violation") +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1,size = 6))+
+        plotTheme()
+```
+
+
+
+```{r}
+properties_vio %>%
+ggplot(.)+
+  geom_point(aes(x = lat, y = lng, 
+                 color = violationcode,
+                 ), 
+             fill = "transparent", alpha = 0.4, size=0.4)+
+  scale_colour_viridis(direction = -1,
+  discrete = TRUE, option = "D")+
+  ylim(min(properties_vio$lng), max(properties_vio$lng))+
+  xlim(min(properties_vio$lat), max(properties_vio$lat))+
+  labs(title="Code Violations in Philadelphia")+
+  mapTheme()+
+  theme(legend.position = "none")
+```
+
 
 ## spatial
 
 ```{r}
-library(tidyverse)
-library(sf)
-library(QuantPsyc)
-library(RSocrata)
-library(viridis)
-library(caret)
-library(spatstat)
-library(spdep)
-library(FNN)
-library(grid)
-library(gridExtra)
-library(knitr)
-library(kableExtra)
-library(tidycensus)
-
-mapTheme <- function(base_size = 12) {
-  theme(
-    text = element_text( color = "black"),
-    plot.title = element_text(size = 14,colour = "black"),
-    plot.subtitle=element_text(face="italic"),
-    plot.caption=element_text(hjust=0),
-    axis.ticks = element_blank(),
-    panel.background = element_blank(),axis.title = element_blank(),
-    axis.text = element_blank(),
-    axis.title.x = element_blank(),
-    axis.title.y = element_blank(),
-    panel.grid.minor = element_blank(),
-    panel.border = element_rect(colour = "black", fill=NA, size=2)
-  )
+nn_function <- function(measureFrom,measureTo,k) {
+  measureFrom_Matrix <- as.matrix(measureFrom)
+  measureTo_Matrix <- as.matrix(measureTo)
+  nn <-   
+    get.knnx(measureTo, measureFrom, k)$nn.dist
+    output <-
+      as.data.frame(nn) %>%
+      rownames_to_column(var = "thisPoint") %>%
+      gather(points, point_distance, V1:ncol(.)) %>%
+      arrange(as.numeric(thisPoint)) %>%
+      group_by(thisPoint) %>%
+      summarize(pointDistance = mean(point_distance)) %>%
+      arrange(as.numeric(thisPoint)) %>% 
+      dplyr::select(-thisPoint) %>%
+      pull()
+    
+  return(output)  
 }
 ```
 
+
+```{r}
+request <- read_csv("./data/311 Requests 2019.csv") %>%
+  drop_na(lat)
+
+request.sf    <- request %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) %>%
+  st_transform('ESRI:102729')
+
+```
+
+```{r}
+footprint <- st_read("./data/LI_BUILDING_FOOTPRINTS-shp/LI_BUILDING_FOOTPRINTS.shp")
+```
+
+```{r}
+footprint.sf <- footprint %>% 
+  st_as_sf(coords = st_centroid(footprint.sf), crs = 4326) %>%
+  st_transform('ESRI:102729')
+
+st_c <- st_coordinates
+
+footprint.sf <-
+  footprint.sf %>% 
+  mutate(
+    request_nn1 = nn_function(st_c(st_centroid(footprint.sf)), st_c(request.sf), 1)) 
+```
 
 
 ```{r}
@@ -230,9 +446,6 @@ ggplot() +
   geom_sf(data = fishnet)
 ```
 
-```{r}
-library(readxl)
-```
 
 
 ```{r}
