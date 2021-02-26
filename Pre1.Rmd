@@ -1,0 +1,321 @@
+---
+title: "Pre1 - EDA"
+output: rmarkdown::github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Use Case
+
+Our tool targets the fire department and residents.
+
+The Philadelphia Fire Department responds to hundreds or even thousands of locations everyday to quell an array of emergencies. Currently, they have no ‘situational awareness’ of fire risk for a given location when an emergency call comes in. Therefore, we are going to help them create such a tool, by providing a parcel-level (building) fire risk score prediction for each property in the City; 
+
+![Ghost_ship_warehouse_interior](1440px-Ghost_ship_warehouse_interior.jpg)
+
+In addition, we want to let residents get a real-time update of the fire risk of their houses so they will have a situational awareness on risk for each property citywide.
+
+```{r}
+library(tidyverse)
+library(sf)
+library(QuantPsyc)
+library(RSocrata)
+library(viridis)
+library(caret)
+library(spatstat)
+library(spdep)
+library(FNN)
+library(grid)
+library(gridExtra)
+library(knitr)
+library(kableExtra)
+library(tidycensus)
+
+mapTheme <- function(base_size = 12) {
+  theme(
+    text = element_text( color = "black"),
+    plot.title = element_text(size = 14,colour = "black"),
+    plot.subtitle=element_text(face="italic"),
+    plot.caption=element_text(hjust=0),
+    axis.ticks = element_blank(),
+    panel.background = element_blank(),axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(colour = "black", fill=NA, size=2)
+  )
+}
+
+#Nearest neighbor (NND) function
+nn_function <- function(measureFrom,measureTo,k) {
+  measureFrom_Matrix <-
+    as.matrix(measureFrom)
+  measureTo_Matrix <-
+    as.matrix(measureTo)
+  nn <-   
+    get.knnx(measureTo, measureFrom, k)$nn.dist
+  output <-
+    as.data.frame(nn) %>%
+    rownames_to_column(var = "thisPoint") %>%
+    gather(points, point_distance, V1:ncol(.)) %>%
+    arrange(as.numeric(thisPoint)) %>%
+    group_by(thisPoint) %>%
+    dplyr::summarize(pointDistance = mean(point_distance)) %>%
+    arrange(as.numeric(thisPoint)) %>% 
+    dplyr::select(-thisPoint) %>%
+    pull()
+  return(output)  
+}
+
+```
+
+```{r}
+#Load data------------------------------------------------------------------
+library(readxl)
+fire <- read_excel("./data/fire.xlsx")
+library(stringr)
+
+fire1 = fire %>%
+  filter(addr_type ==1)
+fire1$address <- paste(ifelse(is.na(fire1$number)==FALSE,fire1$number,''),
+                       "%20",
+                       ifelse(is.na(fire1$st_prefix)==FALSE,fire1$st_prefix,''),
+                       "%20",
+                       ifelse(is.na(fire1$street)==FALSE,fire1$street,''),
+                       "%20",
+                       ifelse(is.na(fire1$st_type)==FALSE,fire1$st_type,''), sep = "")
+fire2 = fire %>%
+  filter(addr_type ==2)
+fire2$address <- paste(ifelse(is.na(fire2$xst_prefix)==FALSE,fire2$xst_prefix,''),
+                       ifelse(fire2$xst_prefix!='',"%20",''),
+                       ifelse(is.na(fire2$xstreet)==FALSE,fire2$xstreet,''),
+                       "%20",
+                       ifelse(is.na(fire2$xst_type)==FALSE,fire2$xst_type,''),
+                       "%20",
+                       "&",
+                       "%20",
+                       ifelse(is.na(fire2$st_prefix)==FALSE,fire2$st_prefix,''), 
+                       ifelse(fire2$st_prefix!='',"%20",''),
+                       ifelse(is.na(fire2$street)==FALSE,fire2$street,''), 
+                       "%20",
+                       ifelse(is.na(fire2$st_type)==FALSE,fire2$st_type,''),
+                       sep = "")  
+fireData <- rbind(fire1, fire2)
+
+fireData$MUSA_ID <- paste0("MUSA_",1:nrow(fireData))
+
+```
+
+
+## Building Features
+
+We looked into all the properties in philadelphia to examine whether there is a higher percentage of fire occurrence in the properties with certain features. 
+
+```{r}
+###loading opa & property data
+opa <- read_csv("data/Fire_OPA_Parcel.csv")
+property <- read_csv("data/opa_properties_public.csv")
+property <- rename(property, OPA_Num = parcel_number)
+fire_opa <- left_join(fireData,opa,by='MUSA_ID')
+property_fire <- left_join(property,fire_opa,by='OPA_Num')
+
+```
+
+```{r}
+##Feature engineering
+fire_property_trim <-mutate(property_fire, category = case_when(
+  category_code == 1  ~ "Residential",
+  category_code == 2  ~ "Hotels and Apartments",
+  category_code == 3  ~ "Store with Dwelling",
+  category_code == 4  ~ "Commercial",
+  category_code == 5  ~ "Industrial",
+  category_code == 6  ~ "Vacant Land"))
+fire_property_trim <-mutate(fire_property_trim, interior = case_when(
+  interior_condition == 0  ~ "Not Applicable",
+  interior_condition == 2  ~ "New/Rehabbed",
+  interior_condition == 3  ~ "Above Average",
+  interior_condition == 4  ~ "Average",
+  interior_condition == 5  ~ "Below Average",
+  interior_condition == 6  ~ "Vacant",
+  interior_condition == 7  ~ "Sealed / Structurally Compromised"))
+fire_property_trim$year_built <- as.numeric(as.character(fire_property_trim$year_built))
+fire_property_trim <-mutate(fire_property_trim, year_built_cat = case_when(
+  year_built >= 1600 & year_built < 1800 ~ "1600-1800",
+  year_built >= 1800 & year_built < 1900 ~ "1800s",
+  year_built >= 1900 & year_built < 2000  ~ "1900s",
+  year_built >= 2000 & year_built < 2010  ~ "2000-2010",
+  year_built >= 2010 & year_built < 2020  ~ "2010-2020",
+  year_built < 1000 | year_built >2020 ~ "Unknown"))
+fire_property_trim <-mutate(fire_property_trim, isfire = case_when(
+  is.na(inci_no) == FALSE  ~ "Have fire",
+  is.na(inci_no) == TRUE  ~ "No fire"))
+```
+
+```{r}
+###EDA plot
+#category
+fire_property_trim  %>% 
+  ggplot(aes(x = category, fill = isfire)) + 
+  geom_bar(position = position_fill()) + 
+  theme_classic() + 
+  labs(y = 'Percent') + 
+  coord_flip() #rotate the axis
+#zoning
+fire_property_trim  %>% 
+  ggplot(aes(x = zoning, fill = isfire)) + 
+  geom_bar(position = position_fill()) + 
+  theme_classic() + 
+  labs(y = 'Percent') + 
+  coord_flip() 
+#interior
+fire_property_trim  %>% 
+  ggplot(aes(x = interior, fill = isfire)) + 
+  geom_bar(position = position_fill()) + 
+  theme_classic() + 
+  labs(y = 'Percent') + 
+  coord_flip() 
+#year build
+fire_property_trim  %>% 
+  ggplot(aes(x = year_built_cat, fill = isfire)) + 
+  geom_bar(position = position_fill()) + 
+  theme_classic() + 
+  labs(y = 'Percent') + 
+  coord_flip() 
+
+```
+As to property category, there is a higher percentage of fire occurrence in commercial, hotels and apartments properties.
+
+As to different zoning type. There is significantly higher propertion of fire occurred in the buildings of SPENT category. 
+
+Slightly more fire occurred in the properties which are sealed or structurally compromised.
+
+There is no significant difference for fire occurrence in properties with different age.
+
+## Environment Factors
+
+(Haoheng's text)
+
+```{r}
+
+```
+
+## Previous Fire
+
+The third risk factor is the spatial correlation of fire incidents. To understand if fires have a tendency to cluster in Philadelphia, we examined the average distance to 5 nearest fire event for each parcel. The results indicate that buildings with a smaller distance to past fires have a higher risk for future fire event.
+
+```{r}
+limit <- 
+  st_read("./data/City_Limits-shp/city_limits.shp") %>%
+  st_transform(2272)
+
+ggplot() + 
+  geom_sf(data = limit)
+
+```
+
+```{r}
+# load the fire data
+fire.sf <- 
+  property_fire%>% 
+  filter(lat < 0 & lng > 0) %>%
+  st_as_sf(coords = c("lat", "lng"), crs = 4326, agr = "constant") %>%
+  st_set_crs(4326) %>%
+  st_transform(2272)
+
+fire.sf <- 
+  st_intersection(fire.sf, limit)
+
+library(lubridate)
+
+fire.sf <- 
+  fire.sf %>%
+  mutate(date=dmy(alm_date),
+         Year=year(date),
+         Month=month(date))
+
+fire.sf_19 <- fire.sf[fire.sf$Year==2019,]
+fire.sf_192 <- fire.sf_19[!is.na(fire.sf_19$Year),]
+
+fire.sf_18 <- fire.sf[fire.sf$Year==2018,]
+fire.sf_182 <- fire.sf_18[!is.na(fire.sf_18$Year),]
+
+fire.sf_17 <- fire.sf[fire.sf$Year==2017,]
+fire.sf_172 <- fire.sf_18[!is.na(fire.sf_17$Year),]
+
+fire.sf_16 <- fire.sf[fire.sf$Year==2016,]
+fire.sf_162 <- fire.sf_18[!is.na(fire.sf_16$Year),]
+
+fire.sf_15 <- fire.sf[fire.sf$Year==2015,]
+fire.sf_152 <- fire.sf_18[!is.na(fire.sf_15$Year),]
+
+# the distance from the nearest 5 fires to the center of the grid for each year(2015-2018)
+fire.sf$lagfire19.nn5 <-nn_function(st_coordinates(fire.sf),st_coordinates(fire.sf_192),5) 
+fire.sf$lagfire18.nn5 <-nn_function(st_coordinates(fire.sf),st_coordinates(fire.sf_182),5) 
+#fire.sf$lagfire17.nn5 <-nn_function(st_coordinates(fire.sf),st_coordinates(fire.sf_172),5) 
+#fire.sf$lagfire16.nn5 <-nn_function(st_coordinates(fire.sf),st_coordinates(fire.sf_162),5) 
+#fire.sf$lagfire15.nn5 <-nn_function(st_coordinates(fire.sf),st_coordinates(fire.sf_152),5) 
+
+```
+
+```{r}
+fire_property_trim <-mutate(fire.sf, isfire = case_when(
+  is.na(inci_no) == FALSE  ~ "Have fire",
+  is.na(inci_no) == TRUE  ~ "No fire"))
+
+fire_property_trim %>%
+    ggplot(aes(isfire, lagfire19.nn5, fill=isfire)) + 
+      geom_bar(position = "dodge", stat = "summary", fun.y = "mean") + 
+      #scale_fill_manual(values = palette2) +
+      labs(x="isfire", y="Value", 
+           title = "Nearby fire associations with the likelihood of fire (2019, nearest 5)",
+           subtitle = "(continous outcomes)") +
+      theme(legend.position = "none")
+```
+
+```{r}
+fire.sample <- fire.sf[sample(nrow(fire.sf), 3000), ]
+
+ggplot() + 
+  geom_sf(data = limit) +
+  geom_sf(data = fire.sample, colour="red", size=0.1, show.legend = "point") +
+  labs(title= "Fire, Philadelphia") +
+  mapTheme()
+```
+
+```{r}
+fire.sf_182.sample <- fire.sf_182[sample(nrow(fire.sf_182), 3000), ]
+fire.sf_192.sample <- fire.sf_192[sample(nrow(fire.sf_192), 3000), ]
+
+ggplot() + 
+  geom_sf(data = limit) +
+  geom_sf(data = fire.sf_182.sample, colour="firebrick1", size=0.1, show.legend = "point") +
+  geom_sf(data = fire.sf_192.sample, colour="firebrick4", size=0.1, show.legend = "point") +
+  labs(title= "Fire 2018/2019, Philadelphia") +
+  mapTheme()
+```
+
+```{r}
+fire.sf_b <- fire.sf%>%filter(descript == 'Building fire')
+
+fire.sf_n <- fire.sf%>%filter(descript != 'Building fire')
+#fire.sf_n.sample <- fire.sf_n[sample(nrow(fire.sf_192), 3000), ]
+
+ggplot() + 
+  geom_sf(data = limit) +
+  geom_sf(data = fire.sf_b, colour="red", size=0.1, show.legend = "point") +
+  geom_sf(data = fire.sf_n, colour="grey", size=0.1, show.legend = "point") +
+  labs(title= "Building fire, Philadelphia") +
+  mapTheme()
+
+```
+
+
+## Next Steps
+
+- Model
+- API
+
+![Project Plan](plan.png)
