@@ -510,5 +510,107 @@ ggplot() +
 
 - Model
 - API
+### API
+```{r}
+#Request OPA number for each address-------------------------------------
+for (i in 1:nrow(fireData)) {
+  # cat(i,"\n")
+  address  <- fireData$address[[i]]
+  base_url <- "http://api.phila.gov/ais/v1/"
+  endpoint <- "search/"
+  key      <- "?gatekeeperKey=dc953bbc4ade9d00eabf5409f6d73d3e"
+  url <- paste(base_url, endpoint, address, key, sep="")
+  response <- httr::GET(url)
+  tidy_res <- httr::content(response, simplifyVector=TRUE)
+  if (length(tidy_res) != 4){
+    if(length(tidy_res$features$properties$opa_account_num)==2)
+      opa_num <-  tidy_res$features$properties$opa_account_num[2]
+    else
+      opa_num <-  tidy_res$features$properties$opa_account_num[1]
+  # fireData$opa[[i]] <- tidy_res$features$properties$opa_account_num[1]
+    if(is.null(opa_num)){
+      opa_num <- "OPA IS NULL"
+    } else if(nchar(opa_num)==0) {
+      opa_num <- "OPA IS ZERO LENGTH"
+    }
+    cat("Address",i,"OPA#:",opa_num,"\n")
+    api_res[i,"OPA_Num"] <- opa_num
+  }else{
+    cat("Address",i,"NO ADDRESS FOUND!","\n")
+    #fireData$opa[[i]] <- "NULL"
+    api_res[i,"OPA_Num"] <- "NONE FOUND"
+  }
+}
+
+#Request parcel_id for each address-------------------------------------
+for (i in 1:nrow(fireData)) {
+  address  <- fireData$address[[i]]
+  base_url <- "http://api.phila.gov/ais/v1/"
+  endpoint <- "search/"
+  key      <- "?gatekeeperKey=dc953bbc4ade9d00eabf5409f6d73d3e"
+  url <- paste(base_url, endpoint, address, key, sep="")
+  response <- httr::GET(url)
+  tidy_res <- httr::content(response, simplifyVector=TRUE)
+  if (length(tidy_res) != 4){
+    if(length(tidy_res$features$properties$dor_parcel_id)==2)
+      parcel_id <-  tidy_res$features$properties$dor_parcel_id[2]
+    else
+      parcel_id <-  tidy_res$features$properties$dor_parcel_id[1]
+    if(is.null(parcel_id)){
+      parcel_id <- "parcel_id IS NULL"
+    } else if(nchar(parcel_id)==0) {
+      parcel_id <- "parcel_id IS ZERO LENGTH"
+    }
+    cat("Address",i,"parcel_id#:",parcel_id,"\n")
+    fireData[i,"parcel_id"] <- parcel_id
+  }else{
+    cat("Address",i,"NO ADDRESS FOUND!","\n")
+    fireData[i,"parcel_id"] <- "NONE FOUND"
+  }
+}
+
+#L&I API---------------------------------------------
+#Request L&I violations for an address
+base_url <- "https://phl.carto.com/api/v2/"
+endpoint <- "sql"
+query    <- c("?q=SELECT%20*%20FROM%20violations%20WHERE%20opa_account_num%20=%20")
+opa_num  <- paste0("%27",871601760,"%27")
+url <- paste(base_url, endpoint, query, opa_num, sep="")
+
+response <- httr::GET(url)
+tidy_res <- httr::content(response, simplifyVector=TRUE)$rows
+
+tidy_res
+
+#Request L&I violations for each address-------------------------------
+for (i in 1:nrow(fireData)) {
+  address  <- fireData$address[[i]]
+  base_url <- "https://phl.carto.com/api/v2/"
+  endpoint <- "sql"
+  query    <- c("?q=SELECT%20*%20FROM%20violations%20WHERE%20opa_account_num%20=%20")
+  opa_num  <- paste0("%27",fireData$opa_account_num[[i]],"%27")
+  url <- paste(base_url, endpoint, query, opa_num, sep="")
+  response <- httr::GET(url)
+  tidy_res <- httr::content(response, simplifyVector=TRUE)
+  
+  #codes needed to be modified
+  if (length(tidy_res) != 4){
+    if(length(tidy_res$features$properties$dor_parcel_id)==2)
+      parcel_id <-  tidy_res$features$properties$dor_parcel_id[2]
+    else
+      parcel_id <-  tidy_res$features$properties$dor_parcel_id[1]
+    if(is.null(parcel_id)){
+      parcel_id <- "parcel_id IS NULL"
+    } else if(nchar(parcel_id)==0) {
+      parcel_id <- "parcel_id IS ZERO LENGTH"
+    }
+    cat("Address",i,"parcel_id#:",parcel_id,"\n")
+    fireData[i,"parcel_id"] <- parcel_id
+  }else{
+    cat("Address",i,"NO ADDRESS FOUND!","\n")
+    fireData[i,"parcel_id"] <- "NONE FOUND"
+  }
+}
+```
 
 ![Project Plan](plan.png)
