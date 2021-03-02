@@ -1,1 +1,1 @@
-The purpose of creating this folder is to clearly show our work on API and to separate work on API from modeling.
+The purpose of creating this folder is to clearly show our work on API and to separate it from modeling.
