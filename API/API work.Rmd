@@ -1,0 +1,184 @@
+---
+title: "API work"
+author: "Haoheng Tang"
+date: "3/2/2021"
+output: rmarkdown::github_document
+---
+## 1. Setup
+
+### 1.1 Load packages
+
+```{r load packages, include=TRUE, echo=FALSE, message=FALSE}
+library(tidyverse)
+library(sf)
+library(QuantPsyc)
+library(RSocrata)
+library(viridis)
+library(caret)
+library(spatstat)
+library(spdep)
+library(FNN)
+library(grid)
+library(gridExtra)
+library(knitr)
+library(kableExtra)
+library(tidycensus)
+
+library(mapview)
+library(httr)
+library(dplyr)
+library(readxl)
+library(stringr)
+```
+
+### 1.2 Load fire data
+
+```{r load fire data, include=TRUE, echo=FALSE, message=FALSE}
+library(readxl)
+fire <- read_excel("./data/fire.xlsx")
+library(stringr)
+
+fire1 = fire %>%
+  filter(addr_type ==1)
+fire1$address <- paste(ifelse(is.na(fire1$number)==FALSE,fire1$number,''),
+                       "%20",
+                       ifelse(is.na(fire1$st_prefix)==FALSE,fire1$st_prefix,''),
+                       "%20",
+                       ifelse(is.na(fire1$street)==FALSE,fire1$street,''),
+                       "%20",
+                       ifelse(is.na(fire1$st_type)==FALSE,fire1$st_type,''), sep = "")
+fire2 = fire %>%
+  filter(addr_type ==2)
+fire2$address <- paste(ifelse(is.na(fire2$xst_prefix)==FALSE,fire2$xst_prefix,''),
+                       ifelse(fire2$xst_prefix!='',"%20",''),
+                       ifelse(is.na(fire2$xstreet)==FALSE,fire2$xstreet,''),
+                       "%20",
+                       ifelse(is.na(fire2$xst_type)==FALSE,fire2$xst_type,''),
+                       "%20",
+                       "&",
+                       "%20",
+                       ifelse(is.na(fire2$st_prefix)==FALSE,fire2$st_prefix,''), 
+                       ifelse(fire2$st_prefix!='',"%20",''),
+                       ifelse(is.na(fire2$street)==FALSE,fire2$street,''), 
+                       "%20",
+                       ifelse(is.na(fire2$st_type)==FALSE,fire2$st_type,''),
+                       sep = "")  
+```
+
+
+## 2. Request opa_account_num & parcel_id
+
+```{r opa_account_num & parcel_id, include=TRUE, echo=TRUE, message=FALSE}
+fireData <- rbind(fire1, fire2) %>%
+  dplyr::select(address)
+
+fireData$MUSA_ID <- paste0("MUSA_",1:nrow(fireData))
+
+for (i in 1:20) {
+  address  <- fireData$address[[i]]
+  base_url <- "http://api.phila.gov/ais/v1/"
+  endpoint <- "search/"
+  key      <- "?gatekeeperKey=dc953bbc4ade9d00eabf5409f6d73d3e"
+  url <- paste(base_url, endpoint, address, key, sep="")
+  response <- httr::GET(url)
+  tidy_res <- httr::content(response, simplifyVector=TRUE)
+  if (length(tidy_res) != 4){
+    if(length(tidy_res$features$properties$opa_account_num)==2)
+      opa_num <-  tidy_res$features$properties$opa_account_num[2]
+    else
+      opa_num <-  tidy_res$features$properties$opa_account_num[1]
+    if(is.null(opa_num)){
+      opa_num <- "OPA IS NULL"
+    } else if(nchar(opa_num)==0) {
+      opa_num <- "OPA IS ZERO LENGTH"
+    }
+    cat("Address",i,"OPA#:",opa_num,"\n")
+    fireData[i,"opa_account_num"] <- opa_num
+  }else{
+    cat("Address",i,"NO ADDRESS FOUND!","\n")
+    fireData[i,"opa_account_num"] <- "NONE FOUND"
+  }
+  
+  if (length(tidy_res) != 4){
+    if(length(tidy_res$features$properties$dor_parcel_id)==2)
+      parcel_id <-  tidy_res$features$properties$dor_parcel_id[2]
+    else
+      parcel_id <-  tidy_res$features$properties$dor_parcel_id[1]
+    if(is.null(parcel_id)){
+      parcel_id <- "PARCEL_ID IS NULL"
+    } else if(nchar(parcel_id)==0) {
+      parcel_id <- "0LENGTH"
+    }
+    cat("Address",i,"parcel_id#:",parcel_id,"\n")
+    fireData[i,"parcel_id"] <- parcel_id
+  }else{
+    cat("Address",i,"NO ADDRESS FOUND!","\n")
+    fireData[i,"parcel_id"] <- "NONE FOUND"
+  }
+}
+
+fireData <- fireData %>%
+  mutate(parcel_id = ifelse(str_count(parcel_id)==10,parcel_id,substr(parcel_id,1,10)))
+```
+
+## 3. Request potential feature data
+
+### 3.1 311 request
+
+```{r 311 request, include=TRUE, echo=TRUE, message=FALSE}
+url311 = "https://phl.carto.com/api/v2/sql?filename=public_cases_fc&format=csv&skipfields=cartodb_id,the_geom,the_geom_webmercator&q=SELECT * FROM public_cases_fc WHERE requested_datetime >= '2019-01-01' AND requested_datetime < '2020-01-01'"
+
+response311 <- httr::GET(url311)
+tidy_res311 <- httr::content(response, simplifyVector=TRUE)
+```
+
+### 3.2 L&I violation
+
+```{r L&I violation, include=TRUE, echo=TRUE, message=FALSE}
+violation <- fireData[1:50,]
+
+for (i in 1:50) {
+  base_url <- "https://phl.carto.com/api/v2/"
+  endpoint <- "sql"
+  query    <- c("?q=SELECT%20*%20FROM%20violations%20WHERE%20opa_account_num%20=%20")
+  opa_num  <- paste0("%27",fireData$opa_account_num[[i]],"%27")
+  url <- paste(base_url, endpoint, query, opa_num, sep="")
+  response <- httr::GET(url)
+  tidy_res <- httr::content(response, simplifyVector=TRUE)
+  
+  if (response$status_code != 400){
+    if(length(tidy_res$rows$violationcode)==1){
+    vio_code <-  tidy_res$rows$violationcode
+    vio_title <- tidy_res$rows$violationcodetitle
+  
+    violation$vio_code[[i]] <- vio_code
+    violation$vio_title[[i]] <- vio_title
+    
+    cat("Address",i,vio_code, vio_title, "\n")}
+    else{
+    violation$vio_code[[i]] <- "NO CODE VIOLATION"
+    violation$vio_title[[i]] <- "NO CODE VIOLATION"
+    cat("Address",i,"NO CODE VIOLATION\n")
+    }
+  }
+  else{
+    violation$vio_code[[i]] <- "NO RESPONSE"
+    violation$vio_title[[i]] <- "NO RESPONSE"
+    cat("Address",i,"NO RESPONSE\n")
+  }
+}
+```
+
+### 3.3 Properties
+
+```{r Properties, include=TRUE, echo=TRUE, message=FALSE}
+plot(pressure)
+```
+
+### 3.4
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
