@@ -129,49 +129,6 @@ fireData <- fireData %>%
 
 DOR_Parcel <- fireData[1:14,]
 
-for (i in 1:14) {
-  base_url <- "https://phl.carto.com/api/v2/"
-  endpoint <- "sql"
-  query    <- c("?q=SELECT%20*%20FROM%20opa_properties_public%20WHERE%20parcel_number%20=%20")
-  opa_num  <- paste0("%27",properties$opa_account_num[[i]],"%27")
-  prop_url <- paste(base_url, endpoint, query, opa_num, sep="")
-  response_prop <- httr::GET(prop_url)
-  tidy_res_prop <- httr::content(response_prop, simplifyVector=TRUE)
-  
-  if (response_prop$status_code != 400){
-    total_area <-  tidy_res_prop$rows$total_area
-    total_livable_area <- tidy_res_prop$rows$total_livable_area
-    zoning <- tidy_res_prop$rows$zoning
-    interior_condition <- tidy_res_prop$rows$interior_condition
-    category_code <- tidy_res_prop$rows$category_code
-    interior_condition <- tidy_res_prop$rows$interior_condition
-  
-    properties$total_area[[i]] <- total_area
-    properties$total_livable_area[[i]] <- total_livable_area
-    properties$zoning[[i]] <- zoning
-    properties$category[[i]] <- case_when(category_code == 1 ~ "Residential",
-                                          category_code == 2 ~ "Hotels and Apartments",
-                                          category_code == 3 ~ "Store with Dwelling",
-                                          category_code == 4 ~ "Commercial",
-                                          category_code == 5 ~ "Industrial",
-                                          category_code == 6 ~ "Vacant Land")
-    properties$interior[[i]] <- interior_condition
-    
-    cat("\nAddress",i,"total_area", total_area)
-    cat("   total_livable_area", total_livable_area)
-    cat("   zoning", zoning)
-    cat("   category", category_code_description)
-    cat("   interior", interior_condition)
-    }
-  else{
-    properties$total_area[[i]] <- "NO RESPONSE"
-    properties$total_livable_area[[i]] <- "NO RESPONSE"
-    properties$zoning[[i]] <- "NO RESPONSE"
-    properties$category[[i]] <- "NO RESPONSE"
-    properties$interior[[i]] <- "NO RESPONSE"
-    cat("\nAddress",i,"NO RESPONSE")
-  }
-}
 
 ```
 
