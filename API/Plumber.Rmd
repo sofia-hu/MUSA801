@@ -1,0 +1,69 @@
+---
+title: "Plumber"
+author: "Haoheng Tang"
+date: "3/11/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Set up
+
+```{r setup, echo=FALSE}
+library(plumber)
+```
+
+## Create API
+
+```{r create API, echo=TRUE}
+#* @api Fire&properties data API
+
+#* @get /address 
+
+request <- function(address){
+  
+  # Request opa -------------------------------------------------
+  base_url <- "http://api.phila.gov/ais/v1/"
+  endpoint <- "search/"
+  key      <- "?gatekeeperKey=dc953bbc4ade9d00eabf5409f6d73d3e"
+  url <- paste(base_url, endpoint, address, key, sep="")
+  response <- httr::GET(url)
+  tidy_res <- httr::content(response, simplifyVector=TRUE)
+  if (length(tidy_res) != 4){
+    if(length(tidy_res$features$properties$opa_account_num)==2)
+      opa_num <-  tidy_res$features$properties$opa_account_num[2]
+    else
+      opa_num <-  tidy_res$features$properties$opa_account_num[1]
+    if(is.null(opa_num)){
+      opa_num <- "OPA IS NULL"
+    } else if(nchar(opa_num)==0) {
+      opa_num <- "OPA IS ZERO LENGTH"
+    }
+    cat("Address",i,"OPA#:",opa_num,"\n")
+    #fireData[i,"opa_account_num"] <- opa_num
+  }else{
+    cat("Address",i,"NO ADDRESS FOUND!","\n")
+    #fireData[i,"opa_account_num"] <- "NONE FOUND"
+  }
+  
+  if (length(tidy_res) != 4){
+    if(length(tidy_res$features$properties$dor_parcel_id)==2)
+      parcel_id <-  tidy_res$features$properties$dor_parcel_id[2]
+    else
+      parcel_id <-  tidy_res$features$properties$dor_parcel_id[1]
+    if(is.null(parcel_id)){
+      parcel_id <- "PARCEL_ID IS NULL"
+    } else if(nchar(parcel_id)==0) {
+      parcel_id <- "0LENGTH"
+    }
+    cat("Address",i,"parcel_id#:",parcel_id,"\n")
+    #fireData[i,"parcel_id"] <- parcel_id
+  }else{
+    cat("Address",i,"NO ADDRESS FOUND!","\n")
+    #fireData[i,"parcel_id"] <- "NONE FOUND"
+  }
+}
+```
+

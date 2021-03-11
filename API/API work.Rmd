@@ -74,7 +74,7 @@ fireData <- rbind(fire1, fire2) %>%
 
 fireData$MUSA_ID <- paste0("MUSA_",1:nrow(fireData))
 
-for (i in 1:20) {
+for (i in 1:50) {
   address  <- fireData$address[[i]]
   base_url <- "http://api.phila.gov/ais/v1/"
   endpoint <- "search/"
@@ -123,13 +123,56 @@ fireData <- fireData %>%
 
 ## 3. Request potential feature data
 
-### 3.1 311 request
+### 3.1 Parcel geometry
+```{r parcel, include=TRUE, echo=TRUE, message=FALSE}
+#https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/DOR_Parcel/FeatureServer/0/query?outFields=*&where=1%3D1
 
-```{r 311 request, include=TRUE, echo=TRUE, message=FALSE}
-url311 = "https://phl.carto.com/api/v2/sql?filename=public_cases_fc&format=csv&skipfields=cartodb_id,the_geom,the_geom_webmercator&q=SELECT * FROM public_cases_fc WHERE requested_datetime >= '2019-01-01' AND requested_datetime < '2020-01-01'"
+DOR_Parcel <- fireData[1:14,]
 
-response311 <- httr::GET(url311)
-tidy_res311 <- httr::content(response, simplifyVector=TRUE)
+for (i in 1:14) {
+  base_url <- "https://phl.carto.com/api/v2/"
+  endpoint <- "sql"
+  query    <- c("?q=SELECT%20*%20FROM%20opa_properties_public%20WHERE%20parcel_number%20=%20")
+  opa_num  <- paste0("%27",properties$opa_account_num[[i]],"%27")
+  prop_url <- paste(base_url, endpoint, query, opa_num, sep="")
+  response_prop <- httr::GET(prop_url)
+  tidy_res_prop <- httr::content(response_prop, simplifyVector=TRUE)
+  
+  if (response_prop$status_code != 400){
+    total_area <-  tidy_res_prop$rows$total_area
+    total_livable_area <- tidy_res_prop$rows$total_livable_area
+    zoning <- tidy_res_prop$rows$zoning
+    interior_condition <- tidy_res_prop$rows$interior_condition
+    category_code <- tidy_res_prop$rows$category_code
+    interior_condition <- tidy_res_prop$rows$interior_condition
+  
+    properties$total_area[[i]] <- total_area
+    properties$total_livable_area[[i]] <- total_livable_area
+    properties$zoning[[i]] <- zoning
+    properties$category[[i]] <- case_when(category_code == 1 ~ "Residential",
+                                          category_code == 2 ~ "Hotels and Apartments",
+                                          category_code == 3 ~ "Store with Dwelling",
+                                          category_code == 4 ~ "Commercial",
+                                          category_code == 5 ~ "Industrial",
+                                          category_code == 6 ~ "Vacant Land")
+    properties$interior[[i]] <- interior_condition
+    
+    cat("\nAddress",i,"total_area", total_area)
+    cat("   total_livable_area", total_livable_area)
+    cat("   zoning", zoning)
+    cat("   category", category_code_description)
+    cat("   interior", interior_condition)
+    }
+  else{
+    properties$total_area[[i]] <- "NO RESPONSE"
+    properties$total_livable_area[[i]] <- "NO RESPONSE"
+    properties$zoning[[i]] <- "NO RESPONSE"
+    properties$category[[i]] <- "NO RESPONSE"
+    properties$interior[[i]] <- "NO RESPONSE"
+    cat("\nAddress",i,"NO RESPONSE")
+  }
+}
+
 ```
 
 ### 3.2 L&I violation
@@ -174,9 +217,9 @@ for (i in 1:50) {
 ```{r Properties, include=TRUE, echo=TRUE, message=FALSE}
 #"https://phl.carto.com/api/v2/sql?q=SELECT * FROM opa_properties_public"
 
-properties <- fireData[1:9,]
+properties <- fireData[1:14,]
 
-for (i in 1:9) {
+for (i in 1:14) {
   base_url <- "https://phl.carto.com/api/v2/"
   endpoint <- "sql"
   query    <- c("?q=SELECT%20*%20FROM%20opa_properties_public%20WHERE%20parcel_number%20=%20")
@@ -185,28 +228,105 @@ for (i in 1:9) {
   response_prop <- httr::GET(prop_url)
   tidy_res_prop <- httr::content(response_prop, simplifyVector=TRUE)
   
-  if (response$status_code != 400){
+  if (response_prop$status_code != 400){
     total_area <-  tidy_res_prop$rows$total_area
     total_livable_area <- tidy_res_prop$rows$total_livable_area
+    zoning <- tidy_res_prop$rows$zoning
+    category_code <- tidy_res_prop$rows$category_code
+    category <- case_when(category_code == 1 ~ "Residential",
+                          category_code == 2 ~ "Hotels and Apartments",
+                          category_code == 3 ~ "Store with Dwelling",
+                          category_code == 4 ~ "Commercial",
+                          category_code == 5 ~ "Industrial",
+                          category_code == 6 ~ "Vacant Land")
+    interior_condition <- tidy_res_prop$rows$interior_condition
+    interior <- case_when(interior_condition == 0 ~ "Not Applicable",
+                          interior_condition == 2 ~ "New/Rehabbed",
+                          interior_condition == 3 ~ "Above Average",
+                          interior_condition == 4 ~ "Average",
+                          interior_condition == 5 ~ "Below Average",
+                          interior_condition == 6 ~ "Vacant",
+                          interior_condition == 7 ~ "Sealed/Structurally Compromised")
   
     properties$total_area[[i]] <- total_area
     properties$total_livable_area[[i]] <- total_livable_area
+    properties$zoning[[i]] <- zoning
+    properties$category[[i]] <- category
+    properties$interior[[i]] <- interior
     
-    cat("Address",i,"total_area", total_area)
-    cat("Address",i,"total_livable_area", total_livable_area)
+    cat("\nAddress",i,"total_area", total_area)
+    cat("   total_livable_area", total_livable_area)
+    cat("   zoning", zoning)
+    cat("   category", category)
+    cat("   interior", interior)
     }
   else{
     properties$total_area[[i]] <- "NO RESPONSE"
     properties$total_livable_area[[i]] <- "NO RESPONSE"
-    cat("Address",i,"NO RESPONSE\n")
+    properties$zoning[[i]] <- "NO RESPONSE"
+    properties$category[[i]] <- "NO RESPONSE"
+    properties$interior[[i]] <- "NO RESPONSE"
+    cat("\nAddress",i,"NO RESPONSE")
   }
 }
 ```
 
-### 3.4
+### 3.4 311 request
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r 311 request, include=TRUE, echo=TRUE, message=FALSE}
+url311 = "https://phl.carto.com/api/v2/sql?filename=public_cases_fc&format=csv&skipfields=cartodb_id,the_geom,the_geom_webmercator&q=SELECT * FROM public_cases_fc WHERE requested_datetime >= '2019-01-01' AND requested_datetime < '2020-01-01'"
+
+response311 <- httr::GET(url311)
+tidy_res311 <- httr::content(response, simplifyVector=TRUE)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+## 4. Make functions
+
+```{r make functions, include=TRUE, echo=TRUE, message=FALSE}
+request <- function(address){
+  
+  # Request opa -------------------------------------------------
+  base_url <- "http://api.phila.gov/ais/v1/"
+  endpoint <- "search/"
+  key      <- "?gatekeeperKey=dc953bbc4ade9d00eabf5409f6d73d3e"
+  url <- paste(base_url, endpoint, address, key, sep="")
+  response <- httr::GET(url)
+  tidy_res <- httr::content(response, simplifyVector=TRUE)
+  if (length(tidy_res) != 4){
+    if(length(tidy_res$features$properties$opa_account_num)==2)
+      opa_num <-  tidy_res$features$properties$opa_account_num[2]
+    else
+      opa_num <-  tidy_res$features$properties$opa_account_num[1]
+    if(is.null(opa_num)){
+      opa_num <- "OPA IS NULL"
+    } else if(nchar(opa_num)==0) {
+      opa_num <- "OPA IS ZERO LENGTH"
+    }
+    cat("Address",i,"OPA#:",opa_num,"\n")
+    #fireData[i,"opa_account_num"] <- opa_num
+  }else{
+    cat("Address",i,"NO ADDRESS FOUND!","\n")
+    #fireData[i,"opa_account_num"] <- "NONE FOUND"
+  }
+  
+  if (length(tidy_res) != 4){
+    if(length(tidy_res$features$properties$dor_parcel_id)==2)
+      parcel_id <-  tidy_res$features$properties$dor_parcel_id[2]
+    else
+      parcel_id <-  tidy_res$features$properties$dor_parcel_id[1]
+    if(is.null(parcel_id)){
+      parcel_id <- "PARCEL_ID IS NULL"
+    } else if(nchar(parcel_id)==0) {
+      parcel_id <- "0LENGTH"
+    }
+    cat("Address",i,"parcel_id#:",parcel_id,"\n")
+    #fireData[i,"parcel_id"] <- parcel_id
+  }else{
+    cat("Address",i,"NO ADDRESS FOUND!","\n")
+    #fireData[i,"parcel_id"] <- "NONE FOUND"
+  }
+}
+
+```
+
