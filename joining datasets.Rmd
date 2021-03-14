@@ -1,0 +1,78 @@
+---
+title: "Joining dataset"
+author: "ZIRUI CHEN"
+date: "3/14/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading datasets
+
+```{r loading}
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(tidyverse)
+
+setwd("~/Desktop/City Planning/2021 spring/801")
+fire <- read_csv("fire_dataset.csv")
+property <- read_csv("opa_properties_public.csv")
+parcel <- read_csv("DOR_Parcel.csv")
+opa <- read_csv("Fire_OPA_Parcel.csv")
+
+```
+
+##Data wrangling
+
+```{r joining, echo=FALSE}
+fire1 = fire %>%
+  filter(addr_type ==1)
+
+fire1$address <- paste(ifelse(is.na(fire1$number)==FALSE,fire1$number,''),
+                       "%20",
+                       ifelse(is.na(fire1$st_prefix)==FALSE,fire1$st_prefix,''),
+                       "%20",
+                       ifelse(is.na(fire1$street)==FALSE,fire1$street,''),
+                       "%20",
+                       ifelse(is.na(fire1$st_type)==FALSE,fire1$st_type,''), sep = "")
+
+fire2 = fire %>%
+  filter(addr_type ==2)
+
+fire2$address <- paste(ifelse(is.na(fire2$xst_prefix)==FALSE,fire2$xst_prefix,''),
+                       ifelse(is.na(fire2$xstreet)==FALSE,fire2$xstreet,''),
+                       "%20",
+                       ifelse(is.na(fire2$xst_type)==FALSE,fire2$xst_type,''),
+                       "%20",
+                       ifelse(is.na(fire2$st_type)==FALSE,fire2$st_type,''), 
+                       "%20",
+                       "&",
+                       "%20",
+                       ifelse(is.na(fire2$st_prefix)==FALSE,fire2$st_prefix,''), 
+                       "%20",
+                       ifelse(is.na(fire2$st_prefix)==FALSE,fire2$st_type,''),
+                       sep = "")  
+
+fireData <- rbind(fire1, fire2)
+
+fireData$MUSA_ID <- paste0("MUSA_",1:nrow(fireData))
+fire_opa <- left_join(fireData,opa,by='MUSA_ID')
+
+
+property_fire1 <- left_join(property,fire,by='registry_number')
+```
+
+## Joining datasets
+
+```{r joining}
+property <- rename(property, OPA_Num = parcel_number)
+property_fire <- left_join(property,fire_opa,by='OPA_Num')
+
+parcel <- rename(parcel, registry_number = BASEREG)
+parcel_pro_fire <- left_join(parcel,property_fire,by='registry_number')
+parcel_pro_fire = parcel_pro_fire %>%filter(ADDR_STD==location)
+
+```
