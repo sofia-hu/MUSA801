@@ -1,0 +1,221 @@
+{
+  "status": [
+    "SUCCESS"
+  ],
+  "code": [
+    "200"
+  ],
+  "parcel_df": [
+    {
+      "Address": "2451%20N%2027TH%20ST",
+      "Opa_account_num": "281063200",
+      "Parcel_id": "031N240123",
+      "Parcel_centroid_x": -8368561.3029,
+      "Parcel_centroid_y": 4864975.5098,
+      "Parcel_shape__Area": 126.4922,
+      "Parcel_Shape__Length": 56.2093
+    }
+  ],
+  "properties_df": [
+    {
+      "total_area": 795.15,
+      "total_livable_area": 840,
+      "zoning": "RSA5",
+      "category": "Residential",
+      "interior": "Above Average"
+    }
+  ],
+  "census_df": [
+    {
+      "census_tract": "016901",
+      "census_block": "2002"
+    }
+  ],
+  "request311": [
+    {
+      "service_request_id": 13976655,
+      "status": "Open",
+      "service_name": "Abandoned Vehicle",
+      "service_code": "SR-PD01",
+      "requested_datetime": "2021-03-03T14:06:41Z",
+      "updated_datetime": "2021-03-03T14:06:43Z",
+      "address": "824 N 16TH ST",
+      "lat": 39.9696,
+      "lon": -75.1634
+    },
+    {
+      "service_request_id": 13963689,
+      "status": "Closed",
+      "service_name": "Sanitation / Dumpster Violation",
+      "service_code": "SR-ST19",
+      "requested_datetime": "2021-03-02T08:52:40Z",
+      "updated_datetime": "2021-03-07T14:01:17Z",
+      "address": "1627 OGDEN ST",
+      "lat": 39.9701,
+      "lon": -75.1641
+    },
+    {
+      "service_request_id": 13968667,
+      "status": "Open",
+      "service_name": "Street Light Outage",
+      "service_code": "SR-ST04",
+      "requested_datetime": "2021-03-02T19:12:34Z",
+      "updated_datetime": "2021-03-02T19:15:50Z",
+      "address": "1712 WYLIE ST",
+      "lat": 39.9702,
+      "lon": -75.1652
+    },
+    {
+      "service_request_id": 13963592,
+      "status": "Open",
+      "service_name": "LI Escalation",
+      "requested_datetime": "2021-03-02T08:33:05Z",
+      "updated_datetime": "2021-03-05T14:55:00Z",
+      "address": "1810 RIDGE AVE",
+      "lat": 39.9718,
+      "lon": -75.1661
+    },
+    {
+      "service_request_id": 13980505,
+      "status": "Closed",
+      "service_name": "Right of Way Unit",
+      "requested_datetime": "2021-03-04T13:21:34Z",
+      "updated_datetime": "2021-03-09T14:17:17Z",
+      "address": "1810 RIDGE AVE",
+      "lat": 39.9718,
+      "lon": -75.1661
+    },
+    {
+      "service_request_id": 13972978,
+      "status": "Open",
+      "service_name": "Abandoned Vehicle",
+      "service_code": "SR-PD01",
+      "requested_datetime": "2021-03-03T07:24:35Z",
+      "updated_datetime": "2021-03-03T07:24:37Z",
+      "address": "824 N 16TH ST",
+      "lat": 39.9696,
+      "lon": -75.1634
+    },
+    {
+      "service_request_id": 13981236,
+      "status": "Open",
+      "service_name": "Abandoned Vehicle",
+      "service_code": "SR-PD01",
+      "requested_datetime": "2021-03-04T17:37:57Z",
+      "updated_datetime": "2021-03-04T17:37:59Z",
+      "address": "824 N 16TH ST",
+      "lat": 39.9696,
+      "lon": -75.1634
+    },
+    {
+      "service_request_id": 13983219,
+      "status": "Open",
+      "service_name": "Other (Streets)",
+      "service_code": "SR-ST16",
+      "requested_datetime": "2021-03-05T13:22:45Z",
+      "updated_datetime": "2021-03-12T07:48:48Z",
+      "address": "1705 RIDGE AVE",
+      "lat": 39.9706,
+      "lon": -75.1649
+    },
+    {
+      "service_request_id": 13960850,
+      "status": "Closed",
+      "service_name": "Sanitation / Dumpster Violation",
+      "service_code": "SR-ST19",
+      "requested_datetime": "2021-03-01T09:34:34Z",
+      "updated_datetime": "2021-03-07T14:01:18Z",
+      "address": "1627 OGDEN ST",
+      "lat": 39.9701,
+      "lon": -75.1641
+    },
+    {
+      "service_request_id": 13983051,
+      "status": "Open",
+      "service_name": "Manhole Cover",
+      "service_code": "SR-ST14",
+      "requested_datetime": "2021-03-05T12:53:37Z",
+      "updated_datetime": "2021-03-09T10:16:54Z",
+      "address": "W GIRARD AVE & RIDGE AVE",
+      "lat": 39.9724,
+      "lon": -75.1665
+    },
+    {
+      "service_request_id": 13963929,
+      "status": "Open",
+      "service_name": "Street Defect",
+      "service_code": "SR-ST01",
+      "requested_datetime": "2021-03-02T09:44:40Z",
+      "updated_datetime": "2021-03-03T11:44:16Z",
+      "address": "1719 RIDGE AVE",
+      "lat": 39.9713,
+      "lon": -75.1654
+    },
+    {
+      "service_request_id": 13969518,
+      "status": "Open",
+      "service_name": "Graffiti Removal",
+      "service_code": "SR-CL01",
+      "requested_datetime": "2021-03-02T21:15:17Z",
+      "updated_datetime": "2021-03-03T13:03:24Z",
+      "address": "1700 RIDGE AVE",
+      "lat": 39.9704,
+      "lon": -75.1651
+    },
+    {
+      "service_request_id": 13966931,
+      "status": "Open",
+      "service_name": "Illegal Dumping",
+      "service_code": "SR-ST02",
+      "requested_datetime": "2021-03-02T15:29:52Z",
+      "updated_datetime": "2021-03-04T09:08:08Z",
+      "address": "1627 OGDEN ST",
+      "lat": 39.9701,
+      "lon": -75.1641
+    },
+    {
+      "service_request_id": 13980512,
+      "status": "Open",
+      "service_name": "Abandoned Vehicle",
+      "service_code": "SR-PD01",
+      "requested_datetime": "2021-03-04T13:25:36Z",
+      "updated_datetime": "2021-03-04T13:25:39Z",
+      "address": "824 N 16TH ST",
+      "lat": 39.9696,
+      "lon": -75.1634
+    },
+    {
+      "service_request_id": 13963664,
+      "status": "Open",
+      "service_name": "Illegal Dumping",
+      "service_code": "SR-ST02",
+      "requested_datetime": "2021-03-02T08:48:46Z",
+      "updated_datetime": "2021-03-05T09:15:21Z",
+      "address": "1627 OGDEN ST",
+      "lat": 39.9701,
+      "lon": -75.1641
+    },
+    {
+      "service_request_id": 13962723,
+      "status": "Closed",
+      "service_name": "Street Defect",
+      "service_code": "SR-ST01",
+      "requested_datetime": "2021-03-01T15:57:01Z",
+      "updated_datetime": "2021-03-03T12:34:23Z",
+      "address": "1615 RIDGE AVE",
+      "lat": 39.9697,
+      "lon": -75.1638
+    },
+    {
+      "service_request_id": 13981363,
+      "status": "Open",
+      "service_name": "Street Defect",
+      "service_code": "SR-ST01",
+      "requested_datetime": "2021-03-04T18:53:54Z",
+      "updated_datetime": "2021-03-10T14:32:13Z",
+      "address": "1723 RIDGE AVE",
+      "lat": 39.9713,
+      "lon": -75.1657
+    }
+  ]
+}

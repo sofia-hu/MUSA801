@@ -11,6 +11,7 @@ output: rmarkdown::github_document
 ```{r load packages, include=TRUE, echo=FALSE, message=FALSE}
 library(tidyverse)
 library(sf)
+library(geojsonsf)
 library(QuantPsyc)
 library(RSocrata)
 library(viridis)
@@ -43,7 +44,7 @@ fire1 = fire %>%
 fire1$address <- paste(ifelse(is.na(fire1$number)==FALSE,fire1$number,''),
                        "%20",
                        ifelse(is.na(fire1$st_prefix)==FALSE,fire1$st_prefix,''),
-                       "%20",
+                       ifelse(is.na(fire1$st_prefix)==FALSE,"%20",''),
                        ifelse(is.na(fire1$street)==FALSE,fire1$street,''),
                        "%20",
                        ifelse(is.na(fire1$st_type)==FALSE,fire1$st_type,''), sep = "")
@@ -66,7 +67,7 @@ fire2$address <- paste(ifelse(is.na(fire2$xst_prefix)==FALSE,fire2$xst_prefix,''
 ```
 
 
-## 2. Request opa_account_num & parcel_id
+## 2. Request opa_account_num & parcel_id & census_tract&block
 
 ```{r opa_account_num & parcel_id, include=TRUE, echo=TRUE, message=FALSE}
 fireData <- rbind(fire1, fire2) %>%
@@ -115,6 +116,27 @@ for (i in 1:50) {
     cat("Address",i,"NO ADDRESS FOUND!","\n")
     fireData[i,"parcel_id"] <- "NONE FOUND"
   }
+  
+  if(length(tidy_res) != 4){
+    if(length(tidy_res$features$properties$census_tract_2010)==2){
+      census_tract <-  tidy_res$features$properties$census_tract_2010[2]}
+    else{
+      census_tract <- tidy_res$features$properties$census_tract_2010
+    }
+    if(length(tidy_res$features$properties$census_block_2010)==2){
+      census_block <-  tidy_res$features$properties$census_block_2010[2]}
+    else{
+      census_block <- tidy_res$features$properties$census_block_2010
+    }
+    fireData[i,"census_tract"] <- as.character(census_tract)
+    cat("Address",i,"census_tract#:",census_tract,"\n")
+    fireData[i,"census_block"] <- as.character(census_block)
+    cat("Address",i,"census_block#:",census_block,"\n")
+  }else{
+    cat("Address",i,"NO ADDRESS FOUND!","\n")
+    fireData[i,"census_tract"] <- "NONE FOUND"
+    fireData[i,"census_block"] <- "NONE FOUND"
+  }
 }
 
 fireData <- fireData %>%
@@ -124,11 +146,32 @@ fireData <- fireData %>%
 ## 3. Request potential feature data
 
 ### 3.1 Parcel geometry
+
 ```{r parcel, include=TRUE, echo=TRUE, message=FALSE}
-#https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/DOR_Parcel/FeatureServer/0/query?outFields=*&where=1%3D1
+DOR_Parcel <- fireData[1:50,]
 
-DOR_Parcel <- fireData[1:14,]
+for (i in 1:50) {
+  if(DOR_Parcel$parcel_id[[i]] != "0LENGTH" && DOR_Parcel$parcel_id[[i]] != "NONE FOUND" &&DOR_Parcel$parcel_id[[i]] != "PARCEL_ID IS NULL"){
+      base <- "https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/DOR_Parcel/FeatureServer/0/query?outFields=*&where=BASEREG%3D%27"
+      BASEREG <- DOR_Parcel$parcel_id[[i]]
+      end <- "%27&returnCentroid=true&f=pjson"
+      dor_url <- paste(base, BASEREG, end, sep="")
+      get_dor <- httr::GET(dor_url)
+      dor_data <- httr::content(get_dor, simplifyVector=TRUE, as = "parsed", type = "application/json")
+      DOR_Parcel[i,"Parcel_OBJECTID"] <- dor_data$features$attributes$OBJECTID
+      DOR_Parcel[i,"PARCEL"] <- dor_data$features$attributes$PARCEL
+      DOR_Parcel[i,"Shape__Area"] <- dor_data$features$attributes$Shape__Area
+      DOR_Parcel[i,"Shape__Length"] <- dor_data$features$attributes$Shape__Length
+      DOR_Parcel[i,"ADDR_SOURCE"] <- dor_data$features$attributes$ADDR_SOURCE
+      DOR_Parcel[i,"x"] <- dor_data$features$centroid$x
+      DOR_Parcel[i,"y"] <- dor_data$features$centroid$y
+  }
 
+}
+
+DOR_Parcel.sf <- DOR_Parcel %>%
+  drop_na(x)%>%
+  st_as_sf(coords = c("x","y"), crs = 3857)
 
 ```
 
@@ -174,9 +217,9 @@ for (i in 1:50) {
 ```{r Properties, include=TRUE, echo=TRUE, message=FALSE}
 #"https://phl.carto.com/api/v2/sql?q=SELECT * FROM opa_properties_public"
 
-properties <- fireData[1:14,]
+properties <- fireData[1:50,]
 
-for (i in 1:14) {
+for (i in 1:50) {
   base_url <- "https://phl.carto.com/api/v2/"
   endpoint <- "sql"
   query    <- c("?q=SELECT%20*%20FROM%20opa_properties_public%20WHERE%20parcel_number%20=%20")
@@ -231,10 +274,29 @@ for (i in 1:14) {
 ### 3.4 311 request
 
 ```{r 311 request, include=TRUE, echo=TRUE, message=FALSE}
-url311 = "https://phl.carto.com/api/v2/sql?filename=public_cases_fc&format=csv&skipfields=cartodb_id,the_geom,the_geom_webmercator&q=SELECT * FROM public_cases_fc WHERE requested_datetime >= '2019-01-01' AND requested_datetime < '2020-01-01'"
+ref311 = "https://phl.carto.com/api/v2/sql?q=SELECT * FROM public_cases_fc WHERE requested_datetime >= '2021-03-01' AND requested_datetime < '2021-03-15' AND lat < "
+#"AND lat > "
+#"AND lon < "
+#"AND lon > "
+
+base311 = ("https://phl.carto.com/api/v2/sql?q=SELECT%20*%20FROM%20public_cases_fc%20WHERE%20requested_datetime%20%3e%3d%20%272021-03-01%27%20AND%20requested_datetime%20%3c%20%272021-03-15%27%20AND%20lat%20%3C%20")
+where1 = "AND%20lat%20%3E%20"
+where2 = "AND%20lon%20%3C%20"
+where3 = "AND%20lon%20%3E%20"
+
+lat =39.97164
+lng = -75.16505
+
+url311 <- paste(base311, lat+0.002, where1, lat-0.002, where2, lng+0.002, where3, lng-0.002, sep="")
+
 
 response311 <- httr::GET(url311)
-tidy_res311 <- httr::content(response, simplifyVector=TRUE)
+tidy_res311 <- httr::content(response311, simplifyVector=TRUE)
+
+request311 <- tidy_res311$rows %>%
+  data.frame() %>%
+  dplyr::select(service_request_id, status, service_name, service_code, requested_datetime, updated_datetime, address, lat, lon)%>%
+  drop_na(lat)
 ```
 
 
