@@ -1,0 +1,106 @@
+---
+title: "EDA_building features+violation"
+author: "ZIRUI CHEN"
+date: "3/16/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(grid)
+library(gridExtra)
+library(dplyr)
+library(ggplot2)
+```
+
+## R Markdown
+
+```{r eda1}
+setwd("~/Desktop/City Planning/2021 spring/801")
+correlations <- read_csv("statistics2.csv")
+
+palette5.2 <- c("#feebe2","#fbb4b9","#f768a1","#c51b8a","#7a0177")
+
+histcom<-ggplot(correlations, aes(x =HasFire , y = Commercial)) + 
+  geom_bar(stat='identity', width =0.6, fill='#fbb4b9') +
+  theme_minimal() +
+  ylim(0,10) +
+  labs(y = "% Commercial", 
+       title = 'Parcels with Commercial Properties') +
+  theme(axis.title.x=element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5))
+histcom
+
+histhot<-ggplot(correlations, aes(x =HasFire , y = Hotels_Apartments)) + 
+  geom_bar(stat='identity', width =0.6, fill='#fbb4b9') +
+  theme_minimal() +
+  ylim(0,30) +
+  labs(y = "% Hotels and Apartments", 
+       title = 'Parcels with Hotels and Apartments') +
+  theme(axis.title.x=element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5))
+histhot
+
+histrm1<-ggplot(correlations, aes(x =HasFire , y = rm1)) + 
+  geom_bar(stat='identity', width =0.6, fill='#f768a1') +
+  theme_minimal() +
+  ylim(0,25) +
+  labs(y = "% RM1 Zoning Type", 
+       title = 'Parcels with RM1 Zoning Type') +
+  theme(axis.title.x=element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5))
+histrm1
+
+histcmx2<-ggplot(correlations, aes(x =HasFire , y = cmx2)) + 
+  geom_bar(stat='identity', width =0.6, fill='#f768a1') +
+  theme_minimal() +
+  ylim(0,10) +
+  labs(y = "% CMX2 Zoning Type", 
+       title = 'Parcels with CMX2 Zoning Type') +
+  theme(axis.title.x=element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5))
+histcmx2
+
+histsea<-ggplot(correlations, aes(x =HasFire , y = sealed)) + 
+  geom_bar(stat='identity', width =0.6, fill='#c51b8a') +
+  theme_minimal() +
+  ylim(0,5) +
+  labs(y = "% Sealed / Structurally Compromised", 
+       title = 'Parcels with Sealed / Structurally Compromised Properties') +
+  theme(axis.title.x=element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5))
+histsea
+
+histbel<-ggplot(correlations, aes(x =HasFire , y = `below average`)) + 
+  geom_bar(stat='identity', width =0.6, fill='#c51b8a') +
+  theme_minimal() +
+  ylim(0,5) +
+  labs(y = "% Below Average", 
+       title = 'Parcels with Properties which are below average') +
+  theme(axis.title.x=element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5))
+histbel
+
+histuns<-ggplot(correlations, aes(x =HasFire , y = `unsafe structure`)) + 
+  geom_bar(stat='identity', width =0.6, fill='#7a0177') +
+  theme_minimal() +
+  ylim(0,5) +
+  labs(y = "% Unsafe Structure", 
+       title = 'Parcels with Properties which have unsafe structure') +
+  theme(axis.title.x=element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5))
+histuns
+
+histequ<-ggplot(correlations, aes(x =HasFire , y = `fire equriment`)) + 
+  geom_bar(stat='identity', width =0.6, fill='#7a0177') +
+  theme_minimal() +
+  ylim(0,15) +
+  labs(y = "% Have Problems with Fire Equipment", 
+       title = 'Parcels with Properties which Have Problems with Fire Equipment') +
+  theme(axis.title.x=element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5))
+histequ
+
+grid.arrange(histcom, histhot, histrm1, histcmx2, histsea, histbel, histuns,histequ, nrow = 4)
+```
+
