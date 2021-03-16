@@ -2,8 +2,28 @@
 
 #* Get the opa_account_num & parcel_id for an input address
 #* @param addr Input address
-#* @get /Opa&Parcel_id
+#* @get /Parcel_Information
 function(addr){
+  addr = "4412%20E%20WINGOHOCKING%20ST"
+  
+  library(tidyverse)
+  library(sf)
+  library(geojsonsf)
+  library(QuantPsyc)
+  library(RSocrata)
+  library(caret)
+  library(spatstat)
+  library(spdep)
+  library(FNN)
+  library(grid)
+  library(gridExtra)
+  library(kableExtra)
+  library(tidycensus)
+
+  library(httr)
+  library(dplyr)
+  library(stringr)
+  
   # Request opa -------------------------------------------------
   base_url <- "http://api.phila.gov/ais/v1/"
   endpoint <- "search/"
@@ -88,6 +108,50 @@ function(addr){
     Centroid_y <- "Null"
   }
   
+  
+  if (Centroid_x != "Null"){
+    ParcelGeom = data.frame(x = c(Centroid_x),
+                            y = c(Centroid_y),
+                            Parcel_OBJECTID = c(Parcel_OBJECTID),
+                            parcel_id = c(parcel_id))%>%
+      st_as_sf(coords = c("x","y"), crs = 3857)
+    
+    DOR_4326 <- ParcelGeom %>% 
+      st_transform(crs = 4326)
+    
+    distance <- 100
+    DOR_meters <- DOR_4326 %>%  
+      st_transform(32618) %>% 
+      cbind(st_coordinates(.)) %>% 
+      mutate(Xmin = X - distance,
+             Xmax = X + distance,
+             Ymin = Y - distance,
+             Ymax = Y + distance) 
+    
+    #Lower-left
+    LL <- DOR_meters %>% 
+      st_drop_geometry() %>% 
+      dplyr::select(Xmin, Ymin, parcel_id) %>% 
+      st_as_sf(coords=c("Xmin","Ymin"),
+               remove = FALSE,
+               crs = 32618) %>% 
+      st_transform(crs = 4326) %>%
+      cbind(st_coordinates(.))
+    
+    #Upper-right
+    UR <- DOR_meters %>% 
+      st_drop_geometry() %>% 
+      dplyr::select(Xmax, Ymax, parcel_id) %>% 
+      st_as_sf(coords=c("Xmax","Ymax"),
+               remove = FALSE,
+               crs = 32618)%>% 
+      st_transform(crs = 4326) %>%
+      cbind(st_coordinates(.))
+  }else{
+    x = "Null"
+    y = "Null"
+  }
+  
   #Request properties data----------------------------------
   base_url <- "https://phl.carto.com/api/v2/"
   endpoint <- "sql"
@@ -116,8 +180,7 @@ function(addr){
                           interior_condition == 5 ~ "Below Average",
                           interior_condition == 6 ~ "Vacant",
                           interior_condition == 7 ~ "Sealed/Structurally Compromised")
-  }
-  else{
+  }else{
     total_area <- "NO RESPONSE"
     total_livable_area <- "NO RESPONSE"
     zoning <- "NO RESPONSE"
@@ -126,24 +189,37 @@ function(addr){
   }
   
   #Request 311 data----------------------------------
-  base311 = ("https://phl.carto.com/api/v2/sql?q=SELECT%20*%20FROM%20public_cases_fc%20WHERE%20requested_datetime%20%3e%3d%20%272021-03-01%27%20AND%20requested_datetime%20%3c%20%272021-03-15%27%20AND%20lat%20%3C%20")
-  where1 = "AND%20lat%20%3E%20"
-  where2 = "AND%20lon%20%3C%20"
-  where3 = "AND%20lon%20%3E%20"
+  if(Centroid_x != "Null"){
+    base311 = ("https://phl.carto.com/api/v2/sql?q=SELECT%20*%20FROM%20public_cases_fc%20WHERE%20")
+    where1 = paste("requested_datetime%20%3e%3d%20%27",Sys.Date()-30,
+                   "%27%20AND%20requested_datetime%20%3c%20%27", Sys.Date(),
+                   "%27%20AND%20lat%20%3C%20",sep="")
+    where2 = "AND%20lat%20%3E%20"
+    where3 = "AND%20lon%20%3C%20"
+    where4 = "AND%20lon%20%3E%20"
+    
+    LATmax = UR$Y
+    LATmin = LL$Y
+    LNGmax = UR$X
+    LNGmin = LL$X
+    
+    url311 <- paste(base311, where1, LATmax, where2, LATmin, where3, LNGmax, where4, LNGmin, sep="")
+    
+    
+    response311 <- httr::GET(url311)
+    tidy_res311 <- httr::content(response311, simplifyVector=TRUE)
   
-  lat =39.97164
-  lng = -75.16505
   
-  url311 <- paste(base311, lat+0.002, where1, lat-0.002, where2, lng+0.002, where3, lng-0.002, sep="")
-  
-  response311 <- httr::GET(url311)
-  tidy_res311 <- httr::content(response311, simplifyVector=TRUE)
-  
-  request311 <- tidy_res311$rows %>%
-    data.frame() %>%
-    dplyr::select(service_request_id, status, service_name, service_code, 
-                  requested_datetime, updated_datetime, address, lat, lon)%>%
-    drop_na(lat)
+    if(length(tidy_res311$rows) != 0){
+      request311 <- tidy_res311$rows %>%
+        data.frame() %>%
+        dplyr::select(service_request_id, status, service_name, service_code, requested_datetime, updated_datetime, address, lat, lon)
+    }else{
+      request311 <- data.frame(Response=c("No 311 request within 100 meters in the last 15 days"))
+    }
+  }else{
+    request311 <- data.frame(Response=c("No 311 request is found because the location of this parcel is unknown"))
+  }
   
   
   
@@ -153,8 +229,8 @@ function(addr){
     data.frame(Address = c(addr),               
              Opa_account_num = c(opa_num), 
              Parcel_id= c(parcel_id),
-             Parcel_centroid_x = c(Centroid_x),
-             Parcel_centroid_y = c(Centroid_y),
+             Parcel_centroid_lat = c(x),
+             Parcel_centroid_lng = c(y),
              Parcel_shape__Area = c(Shape__Area),
              Parcel_Shape__Length = c(Shape__Length)
   )

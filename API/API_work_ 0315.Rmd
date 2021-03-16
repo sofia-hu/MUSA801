@@ -273,79 +273,80 @@ for (i in 1:50) {
 
 ### 3.4 311 request
 
+#### draw boundaries
+
+```{r calculate distance, include=TRUE, echo=TRUE, message=FALSE}
+DOR_4326 <- DOR_Parcel.sf %>% 
+  st_transform(crs = 4326)
+
+distance <- 100
+DOR_meters <- DOR_4326 %>%  
+  st_transform(32618) %>% 
+  cbind(st_coordinates(.)) %>% 
+  mutate(Xmin = X - distance,
+         Xmax = X + distance,
+         Ymin = Y - distance,
+         Ymax = Y + distance) 
+
+LL <- DOR_meters %>% 
+  st_drop_geometry() %>% 
+  dplyr::select(Xmin, Ymin, parcel_id) %>% 
+  st_as_sf(coords=c("Xmin","Ymin"),
+           remove = FALSE,
+           crs = 32618) %>% 
+  st_transform(crs = 4326) %>%
+  cbind(st_coordinates(.))
+
+UR <- DOR_meters %>% 
+  st_drop_geometry() %>% 
+  dplyr::select(Xmax, Ymax, parcel_id) %>% 
+  st_as_sf(coords=c("Xmax","Ymax"),
+           remove = FALSE,
+           crs = 32618)%>% 
+  st_transform(crs = 4326) %>%
+  cbind(st_coordinates(.))
+
+# mapview(DOR_4326) + mapview(LL, col.regions = "red") + mapview(UR, col.regions = "green")
+```
+
+
 ```{r 311 request, include=TRUE, echo=TRUE, message=FALSE}
-ref311 = "https://phl.carto.com/api/v2/sql?q=SELECT * FROM public_cases_fc WHERE requested_datetime >= '2021-03-01' AND requested_datetime < '2021-03-15' AND lat < "
+# ref311 = "https://phl.carto.com/api/v2/sql?q=SELECT * FROM public_cases_fc WHERE requested_datetime >= '2021-03-01' AND requested_datetime < '2021-03-15' AND lat < "
 #"AND lat > "
 #"AND lon < "
 #"AND lon > "
 
-base311 = ("https://phl.carto.com/api/v2/sql?q=SELECT%20*%20FROM%20public_cases_fc%20WHERE%20requested_datetime%20%3e%3d%20%272021-03-01%27%20AND%20requested_datetime%20%3c%20%272021-03-15%27%20AND%20lat%20%3C%20")
-where1 = "AND%20lat%20%3E%20"
-where2 = "AND%20lon%20%3C%20"
-where3 = "AND%20lon%20%3E%20"
+base311 = ("https://phl.carto.com/api/v2/sql?q=SELECT%20*%20FROM%20public_cases_fc%20WHERE%20")
+where1 = paste("requested_datetime%20%3e%3d%20%27",Sys.Date()-30,
+               "%27%20AND%20requested_datetime%20%3c%20%27", Sys.Date(),
+               "%27%20AND%20lat%20%3C%20",sep="")
+where2 = "AND%20lat%20%3E%20"
+where3 = "AND%20lon%20%3C%20"
+where4 = "AND%20lon%20%3E%20"
 
-lat =39.97164
-lng = -75.16505
+LATmax = UR$Y[[1]]
+LATmin = LL$Y[[1]]
+LNGmax = UR$X[[1]]
+LNGmin = LL$X[[1]]
 
-url311 <- paste(base311, lat+0.002, where1, lat-0.002, where2, lng+0.002, where3, lng-0.002, sep="")
+url311 <- paste(base311, where1, LATmax, where2, LATmin, where3, LNGmax, where4, LNGmin, sep="")
 
 
 response311 <- httr::GET(url311)
 tidy_res311 <- httr::content(response311, simplifyVector=TRUE)
 
-request311 <- tidy_res311$rows %>%
-  data.frame() %>%
-  dplyr::select(service_request_id, status, service_name, service_code, requested_datetime, updated_datetime, address, lat, lon)%>%
-  drop_na(lat)
+
+if(length(tidy_res311$rows) != 0){
+  request311 <- tidy_res311$rows %>%
+    data.frame() %>%
+    dplyr::select(service_request_id, status, service_name, service_code, requested_datetime, updated_datetime, address, lat, lon)
+}else{
+  request311 <- data.frame(Response=c("No 311 request within 100 meters in the last 15 days"))
+}
 ```
 
-
-## 4. Make functions
-
-```{r make functions, include=TRUE, echo=TRUE, message=FALSE}
-request <- function(address){
-  
-  # Request opa -------------------------------------------------
-  base_url <- "http://api.phila.gov/ais/v1/"
-  endpoint <- "search/"
-  key      <- "?gatekeeperKey=dc953bbc4ade9d00eabf5409f6d73d3e"
-  url <- paste(base_url, endpoint, address, key, sep="")
-  response <- httr::GET(url)
-  tidy_res <- httr::content(response, simplifyVector=TRUE)
-  if (length(tidy_res) != 4){
-    if(length(tidy_res$features$properties$opa_account_num)==2)
-      opa_num <-  tidy_res$features$properties$opa_account_num[2]
-    else
-      opa_num <-  tidy_res$features$properties$opa_account_num[1]
-    if(is.null(opa_num)){
-      opa_num <- "OPA IS NULL"
-    } else if(nchar(opa_num)==0) {
-      opa_num <- "OPA IS ZERO LENGTH"
-    }
-    cat("Address",i,"OPA#:",opa_num,"\n")
-    #fireData[i,"opa_account_num"] <- opa_num
-  }else{
-    cat("Address",i,"NO ADDRESS FOUND!","\n")
-    #fireData[i,"opa_account_num"] <- "NONE FOUND"
-  }
-  
-  if (length(tidy_res) != 4){
-    if(length(tidy_res$features$properties$dor_parcel_id)==2)
-      parcel_id <-  tidy_res$features$properties$dor_parcel_id[2]
-    else
-      parcel_id <-  tidy_res$features$properties$dor_parcel_id[1]
-    if(is.null(parcel_id)){
-      parcel_id <- "PARCEL_ID IS NULL"
-    } else if(nchar(parcel_id)==0) {
-      parcel_id <- "0LENGTH"
-    }
-    cat("Address",i,"parcel_id#:",parcel_id,"\n")
-    #fireData[i,"parcel_id"] <- parcel_id
-  }else{
-    cat("Address",i,"NO ADDRESS FOUND!","\n")
-    #fireData[i,"parcel_id"] <- "NONE FOUND"
-  }
-}
-
+```{r}
+request311.sf <- request311%>%
+  st_as_sf(coords = c("lon","lat"))
 ```
 
