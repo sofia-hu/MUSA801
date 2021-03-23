@@ -21,7 +21,7 @@ Structure fire is one of the most common yet destructive urban disasters. The Ph
 
 https://whyy.org/articles/despite-desperate-rescue-attempt-10-year-old-and-3-year-old-killed-in-south-philly-fire/
 
-[usecase](plot/usecase.png)
+![usecase](plot/usecase.png)
 
 It’s not yet known if the home had working smoke detectors， but the fire risk for each building is not the same. In a recent study, conducted by American Survey CO, for the period of 2005 - 2010, the causes of house fires across America were as follows:
 
@@ -38,15 +38,15 @@ Currently, the Fire Department has litte ‘situational awareness’ of fire ris
 * A parcel-level (building) fire risk prediction model.
 * A new API dependent on the cities existing open datasets that can provide situational awareness on risk for each property citywide.
 
-[API](plot/API framework.jpg)
+![API](plot/API framework.jpg)
 
-[api-interface](plot/API_interface_danger_index.png)
+![api-interface](plot/API_interface_danger_index.png)
 
-[api-interface](plot/API_interface_nearest_311.png)
+![api-interface](plot/API_interface_nearest_311.png)
 
-[api-interface](plot/API_interface_nearest_fire.png)
+![api-interface](plot/API_interface_nearest_fire.png)
 
-[api-interface](plot/API_interface_zoom_in.png)
+![api-interface](plot/API_interface_zoom_in.png)
 
 In addition, we want to let residents get a real-time update of the fire risk of their houses so they will have a situational awareness on risk for each property citywide.
 
@@ -54,9 +54,9 @@ In addition, we want to let residents get a real-time update of the fire risk of
 
 ## Data Wrangling and Cleaning
 
-[join](plot/join.png)
+![join](plot/join.png)
 
-[story](plot/story.png)
+![story](plot/story.png)
 
 We are going to consider fire risk by gathering parcel level data (indexed by the ‘OPA_Account’ number, including Property Feature
  and Code Violation), environment factors (including 311 Request and Census Data) , and past fire events (Time-Spatial Lag) to create an API that can retrieve relevant data given an address query.
@@ -316,6 +316,7 @@ sort(names(parcel.sf2))
 
 #parcel.sf2[parcel.sf2$Freq > 1,]
 #parcel.sf2[parcel.sf2$id %in% parcel.sf2$Var1[parcel.sf2$Freq > 1],]
+parcel.sf2 <- dplyr::distinct(parcel.sf2, .keep_all = TRUE)
 
 parcel.sf2 <- mutate(parcel.sf2, isfire = case_when(
   is.na(inci_no) == FALSE  ~ "Have fire",
@@ -349,23 +350,24 @@ ggplot(firebyyear, aes(x=factor(Year))) +
 #unique(fire.sf$descript)
 sort(table(firebyyear$descript),decreasing=TRUE)
 
-firep    <- firebyyear %>% filter(firebyyear$descript == 'Cooking fire, confined to container' |firebyyear$descript == 'Building Fire, No Collapse' |firebyyear$descript =='Building fire' |firebyyear$descript =='Outside rubbish fire, Other' |firebyyear$descript =='Outside rubbish, trash or waste fire' |firebyyear$descript =='Passenger vehicle fire' |firebyyear$descript =='Trash or rubbish fire, contained' |firebyyear$descript =='Mobile property (vehicle) fire, Other' |firebyyear$descript =='Brush or brush-and-grass mixture fire' |firebyyear$descript =='Dumpster or other outside trash receptacle fire')
+firep    <- firebyyear %>% filter(firebyyear$descript == 'Cooking fire, confined to container' |firebyyear$descript == 'Building Fire, No Collapse' |firebyyear$descript =='Building fire' |firebyyear$descript =='Outside rubbish fire, Other' |firebyyear$descript =='Outside rubbish, trash or waste fire' |firebyyear$descript =='Passenger vehicle fire' |firebyyear$descript =='Trash or rubbish fire, contained' |firebyyear$descript =='Mobile property (vehicle) fire, Other' |firebyyear$descript =='Brush or brush-and-grass mixture fire' |firebyyear$descript =='Special outside fire, Other')
 
 firep <- within(firep, 
                 descript <- factor(descript, 
                                    levels=names(sort(table(descript), 
-                                                        decreasing=FALSE))))
+                                                        decreasing=TRUE))))
 
 ggplot(firep, aes(x=factor(descript))) +
   geom_bar(aes(fill=factor(descript)),stat="count") +
-  scale_fill_viridis(discrete=TRUE, option='inferno')+
+  scale_fill_viridis(discrete=TRUE, option='inferno', direction = -1)+
   labs(title = "Fire by Type", x = "Fire Type", y = "Count") +
+  theme(axis.text.x=element_blank())+
   plotTheme()
 
 ```
 
 ```{r}
-fire.sf <- parcel.sf2
+fire.sf <- firebyyear
 
 fire.sf_20 <- fire.sf[fire.sf$Year==2020,]
 fire.sf_202 <- fire.sf_20[!is.na(fire.sf_20$Year),]
@@ -406,7 +408,7 @@ nn19 <- parcel.sf2 %>%
       geom_bar(position = "dodge", stat = "summary", fun.y = "mean") + 
       scale_fill_manual(values = palette2) +
       labs(x="isfire", y="Value", 
-           title = "Nearby fire (2019, nearest 5)") +
+           title = "Distance to past fires (nn5), 2019") +
       theme(legend.position = "none")
 
 nn20 <- parcel.sf2 %>%
@@ -414,7 +416,7 @@ nn20 <- parcel.sf2 %>%
       geom_bar(position = "dodge", stat = "summary", fun.y = "mean") + 
       scale_fill_manual(values = palette2) +
       labs(x="isfire", y="Value", 
-           title = "Nearby fire (2020, nearest 5)") +
+           title = "Distance to past fires (nn5), 2020") +
       theme(legend.position = "none")
 
 grid.arrange(nn19,nn20, nrow = 1)
@@ -425,14 +427,14 @@ grid.arrange(nn19,nn20, nrow = 1)
 parcel.sf2.sample <- parcel.sf2[sample(nrow(parcel.sf2), 30000), ]
 
 nn192 <- ggplot()+ 
-  #geom_sf(data = limit, fill = "grey", color = NA) +
+  geom_sf(data = limit%>%st_transform(4326), fill = "grey", color = NA) +
   geom_point(data=parcel.sf2.sample, aes(x=lat,y=lng,color = lagfire19.nn5), size=0.2) +
   scale_color_viridis(option='inferno', direction = -1) +
   labs(subtitle = "Distance to past fires (nn5), 2019") +
   mapTheme()
 
 nn202 <- ggplot()+ 
-  #geom_sf(data = limit, fill = "grey", color = NA) +
+  geom_sf(data = limit%>%st_transform(4326), fill = "grey", color = NA) +
   geom_point(data=parcel.sf2.sample, aes(x=lat,y=lng,color = lagfire20.nn5), size=0.2) +
   scale_color_viridis(option='inferno', direction = -1) +
   labs(subtitle = "Distance to past fires (nn5), 2020") +
@@ -443,57 +445,6 @@ grid.arrange(nn192,nn202, nrow = 1)
 ```
 
 ## Neighborhood Story
-
-```{r}
-fire_tracts <- 
-  fire.sf_192 %>% 
-  dplyr::select() %>% 
-  mutate(count = 1) %>% 
-  aggregate(., tracts, sum) %>%
-  mutate(count = ifelse(is.na(count), 0, count),
-         uniqueID = rownames(.),
-         cvID = sample(round(nrow(tracts) / 24), size=nrow(tracts), replace = TRUE))
-
-fire_tracts2 <- 
-  fire.sf_202 %>% 
-  dplyr::select() %>% 
-  mutate(count = 1) %>% 
-  aggregate(., tracts, sum) %>%
-  mutate(count = ifelse(is.na(count), 0, count),
-         uniqueID = rownames(.),
-         cvID = sample(round(nrow(tracts) / 24), size=nrow(tracts), replace = TRUE))
-
-tract19 <- ggplot() + 
-  geom_sf(data = fire_tracts, aes(fill = count)) +
-  scale_fill_viridis(option='inferno',limits=c(0,50)) +
-  labs(title = "Fire 2019") +
-  mapTheme() 
-
-tract20 <- ggplot() + 
-  geom_sf(data = fire_tracts2, aes(fill = count)) +
-  scale_fill_viridis(option='inferno',limits=c(0,50)) +
-  labs(title = "Fire 2020") +
-  mapTheme() 
-
-grid.arrange(tract19,tract20, nrow = 1)
-
-############Strange tract with 601 fires - yet can not be properly plotted when extracted
-
-plot(fire_tracts[89,])
-
-philly_buf_intersects <- st_intersects(fire_tracts[89,],fire.sf_192)
-hightract <- fire.sf_192[philly_buf_intersects[[1]],]
-st_crs(hightract)
-plot(hightract)
-
-ggplot() + 
-  geom_sf(data = hightract) +
-  geom_sf(data=fire_tracts[89,]) +
-  scale_fill_viridis(option='inferno') +
-  labs(title = "Fire 2019") +
-  mapTheme() 
-
-```
 
 ```{r}
 fire_neighborhoods <- 
@@ -516,17 +467,52 @@ fire_neighborhoods2 <-
 
 hood19 <- ggplot() + 
   geom_sf(data = fire_neighborhoods, aes(fill = count)) +
-  scale_fill_viridis(option='inferno',limits=c(0,100)) +
-  labs(title = "Fire 2019") +
+  scale_fill_viridis(option='inferno') +
+  labs(title = "Fire by Neighborhood, 2019") +
   mapTheme() 
 
 hood20 <- ggplot() + 
   geom_sf(data = fire_neighborhoods2, aes(fill = count)) +
-  scale_fill_viridis(option='inferno',limits=c(0,100)) +
-  labs(title = "Fire 2020") +
+  scale_fill_viridis(option='inferno') +
+  labs(title = "Fire by Neighborhood, 2020") +
   mapTheme() 
 
 grid.arrange(hood19,hood20, nrow = 1)
+```
+
+```{r}
+fire_tracts <- 
+  fire.sf_192 %>% 
+  dplyr::select() %>% 
+  mutate(count = 1) %>% 
+  aggregate(., tracts, sum) %>%
+  mutate(count = ifelse(is.na(count), 0, count),
+         uniqueID = rownames(.),
+         cvID = sample(round(nrow(tracts) / 24), size=nrow(tracts), replace = TRUE))
+
+fire_tracts2 <- 
+  fire.sf_202 %>% 
+  dplyr::select() %>% 
+  mutate(count = 1) %>% 
+  aggregate(., tracts, sum) %>%
+  mutate(count = ifelse(is.na(count), 0, count),
+         uniqueID = rownames(.),
+         cvID = sample(round(nrow(tracts) / 24), size=nrow(tracts), replace = TRUE))
+
+tract19 <- ggplot() + 
+  geom_sf(data = fire_tracts, aes(fill = count)) +
+  scale_fill_viridis(option='inferno') +
+  labs(title = "Fire by Tract, 2019") +
+  mapTheme() 
+
+tract20 <- ggplot() + 
+  geom_sf(data = fire_tracts2, aes(fill = count)) +
+  scale_fill_viridis(option='inferno') +
+  labs(title = "Fire by Tract, 2020") +
+  mapTheme() 
+
+grid.arrange(tract19,tract20, nrow = 1)
+
 ```
 
 ```{r,results=FALSE}
@@ -560,25 +546,25 @@ parcel.sf2 <-
 cen1 <- ggplot() + 
   geom_sf(data = census1, aes(fill = Med_Inc)) +
   scale_fill_viridis(option='inferno') +
-  labs(title = "Med_Inc") +
+  labs(title = "Median Income, 2019") +
   mapTheme() 
 
 cen2 <- ggplot() + 
   geom_sf(data = census1, aes(fill = Med_Age)) +
   scale_fill_viridis(option='inferno') +
-  labs(title = "Med_Age") +
+  labs(title = "Median Age, 2019") +
   mapTheme() 
 
 cen3 <- ggplot() + 
   geom_sf(data = census1, aes(fill = Total_Pop)) +
   scale_fill_viridis(option='inferno') +
-  labs(title = "Total_Pop") +
+  labs(title = "Total Population, 2019") +
   mapTheme() 
 
 cen4 <- ggplot() + 
   geom_sf(data = census1, aes(fill = Percent_White)) +
   scale_fill_viridis(option='inferno') +
-  labs(title = "Percent_White") +
+  labs(title = "Percentage White, 2019") +
   mapTheme() 
 
 grid.arrange(cen1,cen2,cen3,cen4, nrow = 2)
@@ -705,11 +691,8 @@ grid.arrange(histcom, histhot, histrm1, histcmx2, histsea, histbel, nrow = 3)
 ```
 
 As to property category, there is a higher percentage of fire occurrence in commercial, hotels and apartments properties.
-
 As to different zoning type. There is significantly higher propertion of fire occurred in the buildings of SPENT category. 
-
 Slightly more fire occurred in the properties which are sealed or structurally compromised.
-
 There is no significant difference for fire occurrence in properties with different age.
 
 ## Code violation
@@ -822,7 +805,7 @@ parcel.sf2$Dangerous.nn5 <-nn_function(st_coordinates(parcel.sf2),st_coordinates
 ## summary all 311
 request19 <- parcel.sf2 %>%
     ggplot(aes(isfire, request19.nn5, fill=isfire)) + 
-      geom_bar(position = "dodge", stat = "summary", fun.y = "mean") + 
+      geom_bar(position = "dodge", stat = "summary", fun.y = "mean", width =0.6) + 
       scale_fill_manual(values = palette2) +
      # ylim(0,90)+
       labs(x="isfire", y="Value", 
@@ -834,7 +817,7 @@ request19 <- parcel.sf2 %>%
 
 light <- parcel.sf2 %>%
     ggplot(aes(isfire, light.nn5, fill=isfire)) + 
-      geom_bar(position = "dodge", stat = "summary", fun.y = "mean") + 
+      geom_bar(position = "dodge", stat = "summary", fun.y = "mean", width =0.6) + 
       scale_fill_manual(values = palette2) +
       labs(x="isfire", y="Value", 
            title = "Alley Light Outage associations with\n the likelihood of fire (2019, nearest 5)") +
@@ -844,7 +827,7 @@ light <- parcel.sf2 %>%
 
 heat <- parcel.sf2 %>%
     ggplot(aes(isfire, heat.nn5, fill=isfire)) + 
-      geom_bar(position = "dodge", stat = "summary", fun.y = "mean") + 
+      geom_bar(position = "dodge", stat = "summary", fun.y = "mean", width =0.6) + 
       scale_fill_manual(values = palette2) +
       labs(x="isfire", y="Value", 
            title = "No Heat (Residential) associations with\n the likelihood of fire (2019, nearest 5)") +
@@ -854,7 +837,7 @@ heat <- parcel.sf2 %>%
 
 fire311 <- parcel.sf2 %>%
     ggplot(aes(isfire, fire311.nn5, fill=isfire)) + 
-      geom_bar(position = "dodge", stat = "summary", fun.y = "mean") + 
+      geom_bar(position = "dodge", stat = "summary", fun.y = "mean", width =0.6) + 
       scale_fill_manual(values = palette2) +
       labs(x="isfire", y="Value", 
            title = "Fire Residential or Commercial associations with\n the likelihood of fire (2019, nearest 5)") +
@@ -864,7 +847,7 @@ fire311 <- parcel.sf2 %>%
 
 infestation <- parcel.sf2 %>%
     ggplot(aes(isfire, infestation.nn5, fill=isfire)) + 
-      geom_bar(position = "dodge", stat = "summary", fun.y = "mean") + 
+      geom_bar(position = "dodge", stat = "summary", fun.y = "mean", width =0.6) + 
       scale_fill_manual(values = palette2) +
       labs(x="isfire", y="Value", 
            title = "Infestation Residential associations with\n the likelihood of fire (2019, nearest 5)") +
@@ -874,7 +857,7 @@ infestation <- parcel.sf2 %>%
 
 Detector <- parcel.sf2 %>%
     ggplot(aes(isfire, Detector.nn5, fill=isfire)) + 
-      geom_bar(position = "dodge", stat = "summary", fun.y = "mean") + 
+      geom_bar(position = "dodge", stat = "summary", fun.y = "mean", width =0.6) + 
       scale_fill_manual(values = palette2) +
       labs(x="isfire", y="Value", 
            title = "Smoke Detector associations with\n the likelihood of fire (2019, nearest 5)") +
@@ -884,7 +867,7 @@ Detector <- parcel.sf2 %>%
 
 Dangerous <- parcel.sf2 %>%
     ggplot(aes(isfire, Dangerous.nn5, fill=isfire)) + 
-      geom_bar(position = "dodge", stat = "summary", fun.y = "mean") + 
+      geom_bar(position = "dodge", stat = "summary", fun.y = "mean", width =0.6) + 
       scale_fill_manual(values = palette2) +
       labs(x="isfire", y="Value", 
            title = "Building Dangerous associations with \nthe likelihood of fire (2019, nearest 5)") +
@@ -903,14 +886,16 @@ library(plotROC)
 library(pROC)
 library(pscl)
 
-model_data <- parcel.sf2
+model_data <- parcel.sf2 
+
 #colSums(is.na(parcel.sf2))
 model_data <- subset(model_data, select = c(lagfire20.nn5, lagfire19.nn5, lagfire18.nn5,
                                              lagfire17.nn5, lagfire16.nn5, lagfire15.nn5,
                                              category, interior,vio_unsafe, vio_equip,
                                              request19.nn5, light.nn5, heat.nn5, 
                                              fire311.nn5, infestation.nn5, Detector.nn5,
-                                             Dangerous.nn5,isfire,zoning,census_tract,Total_Pop,Med_Inc,Med_Age,Percent_White))
+                                             Dangerous.nn5,isfire,zoning,census_tract,Total_Pop,Med_Inc,Med_Age,Percent_White
+                                            ,descript))
 colSums(is.na(model_data))
 
 model_data$fire <- ifelse(model_data$isfire=='Have fire',1,0)
@@ -928,6 +913,10 @@ model_data$isbelow<-ifelse(is.na(model_data$interior)|model_data$interior!='Belo
 ####Down sampling
 model_data_havefire = model_data %>%
   filter(fire ==1)
+
+model_data_havefire = model_data_havefire%>%
+  filter(model_data_havefire$descript == 'Building Fire, No Collapse' |model_data_havefire$descript =='Building fire' )
+model_data_havefire<- subset(model_data_havefire, select = c(-descript))
 #table(model_data_havefire$fire)
 
 model_data_nofire= model_data %>% filter(fire == 0)
@@ -935,6 +924,7 @@ model_data_nofire= model_data %>% filter(fire == 0)
 
 #select 108920 random rows from temp 0 (27230 *4=108920)
 random_nofire <- model_data_nofire[sample(nrow(model_data_nofire), 27230), ]
+random_nofire<- subset(random_nofire, select = c(-descript))
 
 #rbind 8900 rows of 0 to the 2225 rows of 1
 model_data_new <- rbind(model_data_havefire,random_nofire)
@@ -1018,7 +1008,7 @@ ggplot(testProbs, aes(d = as.numeric(testProbs$Outcome), m = Probs)) +
 * Store model to api
 * api interface
 
-```{r}
+```{r,results=FALSE}
 library(tidyverse)
 library(httr)
 
