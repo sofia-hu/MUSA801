@@ -33,35 +33,31 @@ function(addr){
   tidy_res <- httr::content(response, simplifyVector=TRUE)
   if (length(tidy_res) != 4){
     if(length(tidy_res$features$properties$opa_account_num)==2)
-      opa_num <-  tidy_res$features$properties$opa_account_num[2]
+      opa_account_num <-  tidy_res$features$properties$opa_account_num[2]
     else
-      opa_num <-  tidy_res$features$properties$opa_account_num[1]
-    if(is.null(opa_num)){
-      opa_num <- "OPA IS NULL"
-    } else if(nchar(opa_num)==0) {
-      opa_num <- "OPA IS ZERO LENGTH"
+      opa_account_num <-  tidy_res$features$properties$opa_account_num[1]
+    if(is.null(opa_account_num)){
+      opa_account_num <- "OPA IS NULL"
+    } else if(nchar(opa_account_num)==0) {
+      opa_account_num <- "OPA IS ZERO LENGTH"
     }
   }else{
-    opa_num <- "NONE FOUND"
+    opa_account_num <- "NONE FOUND"
   }
   
-  #parcel_id---------------------------------------
+  #Parcel_Id---------------------------------------
   if (length(tidy_res) != 4){
     if(length(tidy_res$features$properties$dor_parcel_id)==2)
-      parcel_id <-  tidy_res$features$properties$dor_parcel_id[2]
+      Parcel_Id <-  tidy_res$features$properties$dor_parcel_id[2]
     else
-      parcel_id <-  tidy_res$features$properties$dor_parcel_id[1]
-    if(is.null(parcel_id)){
-      parcel_id <- "PARCEL_ID IS NULL"
-    } else if(nchar(parcel_id)==0) {
-      parcel_id <- "0LENGTH"
+      Parcel_Id <-  tidy_res$features$properties$dor_parcel_id[1]
+    if(is.null(Parcel_Id)){
+      Parcel_Id <- "PARCEL_ID IS NULL"
+    } else if(nchar(Parcel_Id)==0) {
+      Parcel_Id <- "0LENGTH"
     }
-    #cat("Address",addr,"parcel_id#:",parcel_id,"\n")
-    #print(parcel_id)
   }else{
-    #cat("Address",addr,"NO ADDRESS FOUND!","\n")
-    #print("NO ADDRESS FOUND!")
-    parcel_id <- "NONE FOUND"
+    Parcel_Id <- "NONE FOUND"
   }
   
   #Census_tract&block_num
@@ -84,9 +80,9 @@ function(addr){
   }
   
   #Request parcel geometry------------------------------------------ 
-  if(parcel_id != "0LENGTH" && parcel_id != "NONE FOUND" &&parcel_id != "PARCEL_ID IS NULL"){
+  if(Parcel_Id != "0LENGTH" && Parcel_Id != "NONE FOUND" &&Parcel_Id != "PARCEL_ID IS NULL"){
     base <- "https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/DOR_Parcel/FeatureServer/0/query?outFields=*&where=BASEREG%3D%27"
-    BASEREG <- parcel_id
+    BASEREG <- Parcel_Id
     end <- "%27&returnCentroid=true&f=pjson"
     dor_url <- paste(base, BASEREG, end, sep="")
     get_dor <- httr::GET(dor_url)
@@ -113,10 +109,40 @@ function(addr){
     ParcelGeom = data.frame(x = c(Centroid_x),
                             y = c(Centroid_y),
                             Parcel_OBJECTID = c(Parcel_OBJECTID),
-                            parcel_id = c(parcel_id))%>%
+                            Parcel_Id = c(Parcel_Id))%>%
       st_as_sf(coords = c("x","y"), crs = 3857)
     
+    DOR_4326 <- ParcelGeom %>% 
+      st_transform(crs = 4326)
     
+    distance <- 100
+    DOR_meters <- DOR_4326 %>%  
+      st_transform(32618) %>% 
+      cbind(st_coordinates(.)) %>% 
+      mutate(Xmin = X - distance,
+             Xmax = X + distance,
+             Ymin = Y - distance,
+             Ymax = Y + distance) 
+    
+    #Lower-left
+    LL <- DOR_meters %>% 
+      st_drop_geometry() %>% 
+      dplyr::select(Xmin, Ymin, Parcel_Id) %>% 
+      st_as_sf(coords=c("Xmin","Ymin"),
+               remove = FALSE,
+               crs = 32618) %>% 
+      st_transform(crs = 4326) %>%
+      cbind(st_coordinates(.))
+    
+    #Upper-right
+    UR <- DOR_meters %>% 
+      st_drop_geometry() %>% 
+      dplyr::select(Xmax, Ymax, Parcel_Id) %>% 
+      st_as_sf(coords=c("Xmax","Ymax"),
+               remove = FALSE,
+               crs = 32618)%>% 
+      st_transform(crs = 4326) %>%
+      cbind(st_coordinates(.))
   }else{
     x = "Null"
     y = "Null"
@@ -126,14 +152,14 @@ function(addr){
   base_url <- "https://phl.carto.com/api/v2/"
   endpoint <- "sql"
   query    <- c("?q=SELECT%20*%20FROM%20opa_properties_public%20WHERE%20parcel_number%20=%20")
-  prop_opa_num  <- paste0("%27",opa_num, "%27")
-  prop_url <- paste(base_url, endpoint, query, prop_opa_num, sep="")
+  prop_opa_account_num  <- paste0("%27",opa_account_num, "%27")
+  prop_url <- paste(base_url, endpoint, query, prop_opa_account_num, sep="")
   response_prop <- httr::GET(prop_url)
   tidy_res_prop <- httr::content(response_prop, simplifyVector=TRUE)
   
   if (response_prop$status_code != 400){
-    total_area <-  tidy_res_prop$rows$total_area
-    total_livable_area <- tidy_res_prop$rows$total_livable_area
+    #total_area <-  tidy_res_prop$rows$total_area
+    #total_livable_area <- tidy_res_prop$rows$total_livable_area
     zoning <- tidy_res_prop$rows$zoning
     category_code <- tidy_res_prop$rows$category_code
     category <- case_when(category_code == 1 ~ "Residential",
@@ -158,10 +184,66 @@ function(addr){
     interior <- "NO RESPONSE"
   }
   
-  #Request 311 data----------------------------------
+  #Request code violation--------------------------------
+  base_url <- "https://phl.carto.com/api/v2/"
+  endpoint <- "sql"
+  query    <- c("?q=SELECT%20*%20FROM%20violations%20WHERE%20opa_account_num%20=%20")
+  opa_account_num  <- paste0("%27",opa_account_num,"%27")
+  url <- paste(base_url, endpoint, query, opa_account_num, sep="")
+  response <- httr::GET(url)
+  tidy_res <- httr::content(response, simplifyVector=TRUE)
+  
+  if (response$status_code != 400){
+    if(length(tidy_res$rows$violationcode)==1){
+      vio_code <-  tidy_res$rows$violationcode
+      vio_title <- tidy_res$rows$violationcodetitle
+      }else{
+      vio_code <- "NO CODE VIOLATION"
+      vio_title <- "NO CODE VIOLATION"
+    }
+  }
+  else{
+    vio_code <- "NO RESPONSE"
+    vio_title <- "NO RESPONSE"
+  }
+  
+  #Request 311 data(within 100m)----------------------------------
   if(Centroid_x != "Null"){
     base311 = ("https://phl.carto.com/api/v2/sql?q=SELECT%20*%20FROM%20public_cases_fc%20WHERE%20")
-    where = paste("requested_datetime%20%3E=%20%27",Sys.Date()-365,
+    where1 = paste("requested_datetime%20%3e%3d%20%27",Sys.Date()-30,
+                   "%27%20AND%20requested_datetime%20%3c%20%27", Sys.Date(),
+                   "%27%20AND%20lat%20%3C%20",sep="")
+    where2 = "AND%20lat%20%3E%20"
+    where3 = "AND%20lon%20%3C%20"
+    where4 = "AND%20lon%20%3E%20"
+    
+    LATmax = UR$Y
+    LATmin = LL$Y
+    LNGmax = UR$X
+    LNGmin = LL$X
+    
+    url311 <- paste(base311, where1, LATmax, where2, LATmin, where3, LNGmax, where4, LNGmin, sep="")
+    
+    
+    response311 <- httr::GET(url311)
+    tidy_res311 <- httr::content(response311, simplifyVector=TRUE)
+    
+    
+    if(length(tidy_res311$rows) != 0){
+      Request311 <- tidy_res311$rows %>%
+        data.frame() %>%
+        dplyr::select(service_name, requested_datetime, address, lat, lon)
+    }else{
+      Request311 <- data.frame(Response=c("No 311 request within 100 meters in the last 15 days"))
+    }
+  }else{
+    Request311 <- data.frame(Response=c("No 311 request is found because the location of this parcel is unknown"))
+  }
+  
+  #Request 311 data(nn5)--------------------------------
+  if(Centroid_x != "Null"){
+    base311 = ("https://phl.carto.com/api/v2/sql?q=SELECT%20*%20FROM%20public_cases_fc%20WHERE%20")
+    where = paste("requested_datetime%20%3E=%20%27",Sys.Date()-730,
                   "%27%20AND%20requested_datetime%20%3C%20%27", Sys.Date(),
                   "%27%20AND%20service_name%20IN%20(%27Alley%20Light%20Outage%27,%20%27No%20Heat%20(Residential)%27%20,%20%27Fire%20Residential%20or%20Commercial%27%20,%20%27Infestation%20Residential%27%20,%20%20%27Smoke%20Detector%27,%20%27Building%20Dangerous%27)",sep="")
     
@@ -215,14 +297,13 @@ function(addr){
       filter(service_name == 'Building Dangerous') 
     
     
-    request311 <- data.frame(light.nn5 = c(ifelse(nrow(light.sf)>=5, nn_function(st_coordinates(DOR_Parcel.sf),st_coordinates(light.sf), 5),"Null")),
-             heat.nn5 =c(ifelse(nrow(heat.sf)>=5, nn_function(st_coordinates(DOR_Parcel.sf),st_coordinates(heat.sf), 5),"Null")),
-             infestation.nn5 =c(ifelse(nrow(infestation.sf)>=5, nn_function(st_coordinates(DOR_Parcel.sf),st_coordinates(infestation.sf), 5),"Null")),
-             Detector.nn5 =c(ifelse(nrow(Detector.sf)>=5,
-                                  nn_function(st_coordinates(DOR_Parcel.sf),st_coordinates(Detector.sf), 5),"Null")),
-             Dangerous.nn5 =c(ifelse(nrow(Dangerous.sf)>=5, 
-                                   nn_function(st_coordinates(DOR_Parcel.sf),st_coordinates(Dangerous.sf), 5), "Null"))
-             )
+    request311 <- data.frame(
+             light.nn5 =  c(nn_function(st_coordinates(ParcelGeom),st_coordinates(light.sf), 5)),
+             heat.nn5 = c(nn_function(st_coordinates(ParcelGeom),st_coordinates(heat.sf), 5)),
+             infestation.nn5= c(nn_function(st_coordinates(ParcelGeom),st_coordinates(infestation.sf), 5)),
+             Detector.nn5 = c(nn_function(st_coordinates(ParcelGeom),st_coordinates(Detector.sf), 5)),
+             Dangerous.nn5 = c(nn_function(st_coordinates(ParcelGeom),st_coordinates(Dangerous.sf), 5))
+      )
   }else{
     request311 <- data.frame(Response=c("No 311 request is found because the location of this parcel is unknown"))
   }
@@ -267,8 +348,8 @@ function(addr){
   #Output-----------------------------------------------
   parcel_df <- 
     data.frame(Address = c(addr),               
-             Opa_account_num = c(opa_num), 
-             Parcel_id= c(parcel_id)
+             Opa_account_num = c(opa_account_num), 
+             Parcel_Id= c(Parcel_Id)
              #Parcel_centroid_lat = c(x),
              #Parcel_centroid_lng = c(y)
              #Parcel_shape__Area = c(Shape__Area),
@@ -276,11 +357,15 @@ function(addr){
   )
   
   properties_df <-
-    data.frame(total_area = c(total_area),
-               total_livable_area = c(total_livable_area),
+    data.frame(#total_area = c(total_area),
+               #total_livable_area = c(total_livable_area),
                zoning = c(zoning),
                category = c(category),
                interior = c(interior))
+  
+  violation_df <-
+    data.frame(vio_code = c(vio_code),
+               vio_title = c(vio_title))
   
   census_df <-
     data.frame(census_tract = c(census_tract),
@@ -294,6 +379,8 @@ function(addr){
   
   res <- list(#status = "SUCCESS", code = "200", 
               parcel_df = parcel_df, properties_df= properties_df,
-              census_df= census_df, request311= request311
+              violation_df = violation_df,
+              census_df= census_df, request311 = Request311,
+              request311.nn5= request311
               )
 }
