@@ -1,0 +1,1512 @@
+---
+title: "Pre2 - EDA"
+output:   
+  html_document:
+    code_folding: hide
+    toc: TRUE
+    toc_float: TRUE
+    number_sections: TRUE
+    theme: united
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,results=TRUE, message = FALSE, 
+                      warning=FALSE, fig.align="center", cache=FALSE)
+options(scipen=99)
+```
+
+# Use Case
+
+Structure fire is one of the most common yet destructive urban disasters. The Philadelphia Fire Department responds to hundreds or even thousands of locations everyday to quell an array of emergencies. On Nov. 21, 2020, two children were killed in a rowhome fire in Philadelphia’s Grays Ferry neighborhood despite rescue efforts by Philadelphia firefighters and desperate neighbors. The fire was reported at about 1:15 a.m. Although firefighters responded within two minutes, the row home was consumed by fire when they arrived. 
+
+https://whyy.org/articles/despite-desperate-rescue-attempt-10-year-old-and-3-year-old-killed-in-south-philly-fire/
+
+![usecase](plot/usecase.png)
+
+It’s not yet known if the home had working smoke detectors， but the fire risk for each building is not the same. In a recent study, conducted by American Survey CO, for the period of 2005 - 2010, the causes of house fires across America were as follows:
+
+* Appliances and electrical (stoves, microwaves, toasters, radiators, various heating systems, small appliances) - approximately 47%
+* Gas leaks - around 5-7%
+* Open flames (candles, fireplaces) - approximately 32%
+* Children playing with matches - Around 10%
+* Spreading of fires from house to house - approximately 3%
+
+Besides those immediate cause of fire, there are other factors that are important to fire risk prediction and worth fire fighter awareness. For instance, code violation and 311 request can be a vital factor for fire risk. 
+
+Currently, the Fire Department has litte ‘situational awareness’ of fire risk for a given location when an emergency call comes in. Therefore, we are going to help them by creating a parcel-level (building) fire risk score prediction for each property in the city, and by providing 2 deliverables:
+
+* A parcel-level (building) fire risk prediction model.
+* A new API dependent on the cities existing open datasets that can provide situational awareness on risk for each property citywide.
+
+![API](plot/API framework.jpg)
+
+![api-interface](plot/API_interface_danger_index.png)
+
+![api-interface](plot/API_interface_nearest_311.png)
+
+![api-interface](plot/API_interface_nearest_fire.png)
+
+![api-interface](plot/API_interface_zoom_in.png)
+
+In addition, we want to let residents get a real-time update of the fire risk of their houses so they will have a situational awareness on risk for each property citywide.
+
+# EDA
+
+## Data Wrangling and Cleaning
+
+![join](plot/join.png)
+
+![story](plot/story.png)
+
+We are going to consider fire risk by gathering parcel level data (indexed by the ‘OPA_Account’ number, including Property Feature
+ and Code Violation), environment factors (including 311 Request and Census Data) , and past fire events (Time-Spatial Lag) to create an API that can retrieve relevant data given an address query.
+
+```{r,results=FALSE}
+library(tidyverse)
+library(sf)
+library(QuantPsyc)
+library(RSocrata)
+library(viridis)
+library(caret)
+library(spatstat)
+library(spdep)
+library(FNN)
+library(grid)
+library(gridExtra)
+library(knitr)
+library(kableExtra)
+library(tidycensus)
+
+library(mapview)
+library(httr)
+library(dplyr)
+library(readxl)
+library(stringr)
+library(raster)
+library(ggplot2)
+library(lubridate)
+
+qBr <- function(df, variable, rnd) {
+  if (missing(rnd)) {
+    as.character(quantile(round(df[[variable]],0),
+                          c(.01,.2,.4,.6,.8), na.rm=T))
+  } else if (rnd == FALSE | rnd == F) {
+    as.character(formatC(quantile(df[[variable]]), digits = 3),
+                          c(.01,.2,.4,.6,.8), na.rm=T)
+  }
+}
+
+q5 <- function(variable) {as.factor(ntile(variable, 5))}
+palette5 <- c("#25CB10", "#5AB60C", "#8FA108",   "#C48C04", "#FA7800")
+
+mapTheme <- function(base_size = 12) {
+  theme(
+    text = element_text( color = "black"),
+    plot.title = element_text(size = 14,colour = "black"),
+    plot.subtitle=element_text(face="italic"),
+    plot.caption=element_text(hjust=0),
+    axis.ticks = element_blank(),
+    panel.background = element_blank(),axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(colour = "black", fill=NA, size=2)
+  )
+}
+
+plotTheme <- function(base_size = 12) {
+  theme(
+    text = element_text( color = "black"),
+    plot.title = element_text(size = 14,colour = "black"),
+    plot.subtitle = element_text(face="italic"),
+    plot.caption = element_text(hjust=0),
+    axis.ticks = element_blank(),
+    panel.background = element_blank(),
+    panel.grid.major = element_line("grey80", size = 0.1),
+    panel.grid.minor = element_blank(),
+    panel.border = element_rect(colour = "black", fill=NA, size=2),
+    strip.background = element_rect(fill = "grey80", color = "white"),
+    strip.text = element_text(size=12),
+    axis.title = element_text(size=12),
+    axis.text = element_text(size=10),
+    plot.background = element_blank(),
+    legend.background = element_blank(),
+    legend.title = element_text(colour = "black", face = "italic"),
+    legend.text = element_text(colour = "black", face = "italic"),
+    strip.text.x = element_text(size = 14)
+  )
+}
+
+# count function 
+count_net <- function(data,fishnetGrid, name){
+  count<- data %>% #get count by fishnet
+    dplyr::select() %>% 
+    mutate(count = 1) %>% 
+    aggregate(., fishnetGrid, sum) %>%
+    mutate(count = ifelse(is.na(count), 0, count),uniqueID = rownames(.))%>%
+    plyr::rename(.,c('count' = name))
+  return (count)
+}
+
+# kernel density function 
+kernelDensity <- function(data, fishnetGrid, name){
+  count<- data %>% #get count by fishnet
+    dplyr::select() %>% 
+    mutate(count = 1) %>% 
+    aggregate(., fishnetGrid, sum) %>%
+    mutate(count = ifelse(is.na(count), 0, count),
+           uniqueID = rownames(.),
+           cvID = sample(round(nrow(fishnetGrid) / 24), size=nrow(fishnetGrid), replace = TRUE))
+  
+  point_ppp <- as.ppp(st_coordinates(data), W = st_bbox(count))
+  KD <- spatstat::density.ppp(point_ppp, 1000)
+  
+  KD_dataframe<-as.data.frame(KD) %>% 
+    st_as_sf(coords = c("x", "y"), crs = st_crs(fishnetGrid)) %>%
+    aggregate(.,fishnetGrid, mean)%>%plyr::rename(.,c('value' = name))
+  
+  return(KD_dataframe)
+}
+
+#Nearest neighbor (NND) function
+nn_function <- function(measureFrom,measureTo,k) {
+  measureFrom_Matrix <- as.matrix(measureFrom)
+  measureTo_Matrix <- as.matrix(measureTo)
+  nn <-   
+    get.knnx(measureTo, measureFrom, k)$nn.dist
+    output <-
+      as.data.frame(nn) %>%
+      rownames_to_column(var = "thisPoint") %>%
+      gather(points, point_distance, V1:ncol(.)) %>%
+      arrange(as.numeric(thisPoint)) %>%
+      group_by(thisPoint) %>%
+      summarize(pointDistance = mean(point_distance)) %>%
+      arrange(as.numeric(thisPoint)) %>% 
+      dplyr::select(-thisPoint) %>%
+      pull()
+    
+  return(output)  
+}
+
+palette2 <- c("#F6C729","#800080")
+palette3 <- c("#800080","#F6C729")
+```
+
+```{r,results=FALSE}
+#setwd("~/Desktop/City Planning/2021 spring/801")
+#fire2019 <- read_csv("./data/fire_dataset.csv")
+fire2019 <- read_excel("./data/fire.xlsx")
+fire2020 <- read_excel("./data/fire2020.xlsx")
+fire2020 <- fire2020%>%mutate(addr_type = 1)
+fire2019 <- subset(fire2019, select = -c(city,state,descript_b))
+fire2020 <- subset(fire2020, select = -c(Propuse_desc,Code,Act_desc,Census,Occup_id))
+fire2019 <- 
+  fire2019 %>%
+  mutate(date=dmy(alm_date),
+         Year=year(date),
+         Month=month(date))
+fire2020 <- 
+  fire2020 %>%
+  mutate(date=as.Date(alm_date),
+         Year=year(date),
+         Month=month(date))
+fire <- rbind(fire2019, fire2020)
+
+#setdiff(names(fire2020),names(fire2019))
+#setdiff(names(fire2019),names(fire2020))
+
+property <- read_csv("./data/opa_properties_public.csv")
+parcel <- read_csv("./data/DOR_Parcel.csv")
+#opa <- read_csv("./data/Fire_OPA_Parcel.csv")
+#opa <- read_csv("./data/all_opa_par_addr.csv")
+opa <- read_csv("./data/fireData_opa_par_addr.csv")
+
+#opa[opa$Freq > 1,]
+
+violation1 <- read_csv("./data/violations.csv")
+violation2 <- read_csv("./data/violations2.csv")
+#violation3 <- read_csv("./data/violations2.csv")
+```
+
+```{r,results=FALSE}
+#join fire with opa num
+fire1 = fire %>%
+  filter(addr_type ==1)
+fire1$address <- paste(ifelse(is.na(fire1$number)==FALSE,fire1$number,''),
+                       "%20",
+                       ifelse(is.na(fire1$st_prefix)==FALSE,fire1$st_prefix,''),
+                       "%20",
+                       ifelse(is.na(fire1$street)==FALSE,fire1$street,''),
+                       "%20",
+                       ifelse(is.na(fire1$st_type)==FALSE,fire1$st_type,''), sep = "")
+fire2 = fire %>%
+  filter(addr_type ==2)
+fire2$address <- paste(ifelse(is.na(fire2$xst_prefix)==FALSE,fire2$xst_prefix,''),
+                       ifelse(fire2$xst_prefix!='',"%20",''),
+                       ifelse(is.na(fire2$xstreet)==FALSE,fire2$xstreet,''),
+                       "%20",
+                       ifelse(is.na(fire2$xst_type)==FALSE,fire2$xst_type,''),
+                       "%20",
+                       "&",
+                       "%20",
+                       ifelse(is.na(fire2$st_prefix)==FALSE,fire2$st_prefix,''), 
+                       ifelse(fire2$st_prefix!='',"%20",''),
+                       ifelse(is.na(fire2$street)==FALSE,fire2$street,''), 
+                       "%20",
+                       ifelse(is.na(fire2$st_type)==FALSE,fire2$st_type,''),
+                       sep = "")  
+fireData <- rbind(fire1, fire2)
+fireData$MUSA_ID <- paste0("MUSA_",1:nrow(fireData))
+
+opa <- rename(opa, OPA_Num = opa_account_num)
+
+#fire_opa <- left_join(fireData,opa,by='address')
+fire_opa <- left_join(fireData,opa,by='MUSA_ID')
+
+#join property data with fire data
+property <- rename(property, OPA_Num = parcel_number)
+property_fire <- left_join(property,fire_opa,by='OPA_Num')
+
+parcel <- rename(parcel, registry_number = BASEREG)
+parcel_pro_fire <- left_join(parcel,property_fire,by='registry_number')
+
+parcel_pro_fire = parcel_pro_fire %>%filter(ADDR_STD==location)
+
+sort(names(parcel_pro_fire))
+```
+
+```{r,results=FALSE}
+limit <- 
+  st_read("./data/City_Limits-shp/city_limits.shp") %>%
+  st_transform(2272)
+
+#ggplot() + 
+#  geom_sf(data = limit)
+
+tracts <- 
+  st_read("http://data.phl.opendata.arcgis.com/datasets/ccdc0d022f4949a7b11333bd37231aef_0.geojson")%>%
+  st_set_crs(4326) %>%
+  na.omit() %>%
+  st_transform(crs=2272)
+
+neighborhoods <- 
+  st_read("https://raw.githubusercontent.com/azavea/geo-data/master/Neighborhoods_Philadelphia/Neighborhoods_Philadelphia.geojson")%>%
+  st_set_crs(4326) %>%
+  na.omit() %>%
+  st_transform(crs=2272)
+
+dor <- 
+  st_read("./data/DOR_Parcel/DOR_Parcel.shp")
+
+```
+
+```{r,results=FALSE}
+# load the fire data
+coords = st_centroid(dor)
+
+parcel.sf <- 
+  st_as_sf(coords, crs = 4326) %>%
+  st_transform(2272)
+
+parcel.sf <- rename(parcel.sf, registry_number = BASEREG)
+parcel.sf2 <- left_join(parcel.sf,property_fire,by='registry_number')
+parcel.sf2 = parcel.sf2 %>%filter(ADDR_STD==location)
+
+#setdiff(names(parcel.sf2),names(parcel_pro_fire))
+#setdiff(names(parcel_pro_fire),names(parcel.sf2))
+#parcel.sf2 <- subset(parcel.sf2, select = -c(ADDR_SOURC,SEPARATED_,MUNIMENT_T,MUNIMENT_I,Shape__Are,Shape__Len))
+
+sort(names(parcel.sf2))
+
+#parcel.sf2[parcel.sf2$Freq > 1,]
+#parcel.sf2[parcel.sf2$id %in% parcel.sf2$Var1[parcel.sf2$Freq > 1],]
+parcel.sf2 <- dplyr::distinct(parcel.sf2, .keep_all = TRUE)
+
+parcel.sf2 <- mutate(parcel.sf2, isfire = case_when(
+  is.na(inci_no) == FALSE  ~ "Have fire",
+  is.na(inci_no) == TRUE  ~ "No fire"))
+
+```
+
+## Previous Fire
+
+The first risk factor is the spatial correlation of fire incidents. To understand if fires have a tendency to cluster in Philadelphia, we examined the average distance to 5 nearest fire event for each parcel. The results indicate that buildings with a smaller distance to past fires have a higher risk for future fire event.
+
+```{r}
+#print(as.Date('1/1/2020'))
+#print(as.Date('01-Jan-15'))
+#print(ymd('01-Jan-15'))
+#print(ymd('1/1/2020'))
+
+#unique(fire.sf$Year)
+sort(table(parcel.sf2$Year),decreasing=TRUE)
+
+firebyyear<-subset(parcel.sf2, !is.na(Year))
+
+ggplot(firebyyear, aes(x=factor(Year))) +
+  geom_bar(aes(fill=factor(Year)),stat="count") +
+  scale_fill_viridis(discrete=TRUE, option='inferno')+
+  labs(title = "Fire by Year", x = "Fire Year", y = "Count") +
+  plotTheme()
+
+
+
+#unique(fire.sf$descript)
+sort(table(firebyyear$descript),decreasing=TRUE)
+
+firep    <- firebyyear %>% filter(firebyyear$descript == 'Cooking fire, confined to container' |firebyyear$descript == 'Building Fire, No Collapse' |firebyyear$descript =='Building fire' |firebyyear$descript =='Outside rubbish fire, Other' |firebyyear$descript =='Outside rubbish, trash or waste fire' |firebyyear$descript =='Passenger vehicle fire' |firebyyear$descript =='Trash or rubbish fire, contained' |firebyyear$descript =='Mobile property (vehicle) fire, Other' |firebyyear$descript =='Brush or brush-and-grass mixture fire' |firebyyear$descript =='Special outside fire, Other')
+
+firep <- within(firep, 
+                descript <- factor(descript, 
+                                   levels=names(sort(table(descript), 
+                                                        decreasing=TRUE))))
+
+ggplot(firep, aes(x=factor(descript))) +
+  geom_bar(aes(fill=factor(descript)),stat="count") +
+  scale_fill_viridis(discrete=TRUE, option='inferno', direction = -1)+
+  labs(title = "Fire by Type", x = "Fire Type", y = "Count") +
+  theme(axis.text.x=element_blank())+
+  plotTheme()
+
+```
+
+```{r}
+fire.sf <- firebyyear
+
+fire.sf_20 <- fire.sf[fire.sf$Year==2020,]
+fire.sf_202 <- fire.sf_20[!is.na(fire.sf_20$Year),]
+
+fire.sf_19 <- fire.sf[fire.sf$Year==2019,]
+fire.sf_192 <- fire.sf_19[!is.na(fire.sf_19$Year),]
+
+#fire.sf_192[fire.sf_192$Freq > 1,]
+
+fire.sf_18 <- fire.sf[fire.sf$Year==2018,]
+fire.sf_182 <- fire.sf_18[!is.na(fire.sf_18$Year),]
+
+fire.sf_17 <- fire.sf[fire.sf$Year==2017,]
+fire.sf_172 <- fire.sf_18[!is.na(fire.sf_17$Year),]
+
+fire.sf_16 <- fire.sf[fire.sf$Year==2016,]
+fire.sf_162 <- fire.sf_18[!is.na(fire.sf_16$Year),]
+
+fire.sf_15 <- fire.sf[fire.sf$Year==2015,]
+fire.sf_152 <- fire.sf_18[!is.na(fire.sf_15$Year),]
+
+```
+
+```{r}
+# the distance from the nearest 5 fires to the center of the grid for each year(2015-2020)
+parcel.sf2$lagfire20.nn5 <-nn_function(st_coordinates(parcel.sf2),st_coordinates(fire.sf_202),5) 
+parcel.sf2$lagfire19.nn5 <-nn_function(st_coordinates(parcel.sf2),st_coordinates(fire.sf_192),5) 
+parcel.sf2$lagfire18.nn5 <-nn_function(st_coordinates(parcel.sf2),st_coordinates(fire.sf_182),5) 
+parcel.sf2$lagfire17.nn5 <-nn_function(st_coordinates(parcel.sf2),st_coordinates(fire.sf_172),5) 
+parcel.sf2$lagfire16.nn5 <-nn_function(st_coordinates(parcel.sf2),st_coordinates(fire.sf_162),5) 
+parcel.sf2$lagfire15.nn5 <-nn_function(st_coordinates(parcel.sf2),st_coordinates(fire.sf_152),5)
+
+```
+
+```{r}
+nn19 <- parcel.sf2 %>%
+    ggplot(aes(isfire, lagfire19.nn5, fill=isfire)) + 
+      geom_bar(position = "dodge", stat = "summary", fun.y = "mean") + 
+      scale_fill_manual(values = palette2) +
+      labs(x="isfire", y="Value", 
+           title = "Distance to past fires (nn5), 2019") +
+      theme(legend.position = "none")
+
+nn20 <- parcel.sf2 %>%
+    ggplot(aes(isfire, lagfire20.nn5, fill=isfire)) + 
+      geom_bar(position = "dodge", stat = "summary", fun.y = "mean") + 
+      scale_fill_manual(values = palette2) +
+      labs(x="isfire", y="Value", 
+           title = "Distance to past fires (nn5), 2020") +
+      theme(legend.position = "none")
+
+grid.arrange(nn19,nn20, nrow = 1)
+
+```
+
+```{r}
+parcel.sf2.sample <- parcel.sf2[sample(nrow(parcel.sf2), 30000), ]
+
+nn192 <- ggplot()+ 
+  geom_sf(data = limit%>%st_transform(4326), fill = "grey", color = NA) +
+  geom_point(data=parcel.sf2.sample, aes(x=lat,y=lng,color = lagfire19.nn5), size=0.2) +
+  scale_color_viridis(option='inferno', direction = -1) +
+  labs(subtitle = "Distance to past fires (nn5), 2019") +
+  mapTheme()
+
+nn202 <- ggplot()+ 
+  geom_sf(data = limit%>%st_transform(4326), fill = "grey", color = NA) +
+  geom_point(data=parcel.sf2.sample, aes(x=lat,y=lng,color = lagfire20.nn5), size=0.2) +
+  scale_color_viridis(option='inferno', direction = -1) +
+  labs(subtitle = "Distance to past fires (nn5), 2020") +
+  mapTheme()
+
+grid.arrange(nn192,nn202, nrow = 1)
+
+```
+
+## Neighborhood Story
+
+```{r}
+fire_neighborhoods <- 
+  fire.sf_192 %>% 
+  dplyr::select() %>% 
+  mutate(count = 1) %>% 
+  aggregate(., neighborhoods, sum) %>%
+  mutate(count = ifelse(is.na(count), 0, count),
+         uniqueID = rownames(.),
+         cvID = sample(round(nrow(neighborhoods) / 24), size=nrow(neighborhoods), replace = TRUE))
+
+fire_neighborhoods2 <- 
+  fire.sf_202 %>% 
+  dplyr::select() %>% 
+  mutate(count = 1) %>% 
+  aggregate(., neighborhoods, sum) %>%
+  mutate(count = ifelse(is.na(count), 0, count),
+         uniqueID = rownames(.),
+         cvID = sample(round(nrow(neighborhoods) / 24), size=nrow(neighborhoods), replace = TRUE))
+
+hood19 <- ggplot() + 
+  geom_sf(data = fire_neighborhoods, aes(fill = count)) +
+  scale_fill_viridis(option='inferno') +
+  labs(title = "Fire by Neighborhood, 2019") +
+  mapTheme() 
+
+hood20 <- ggplot() + 
+  geom_sf(data = fire_neighborhoods2, aes(fill = count)) +
+  scale_fill_viridis(option='inferno') +
+  labs(title = "Fire by Neighborhood, 2020") +
+  mapTheme() 
+
+grid.arrange(hood19,hood20, nrow = 1)
+```
+
+```{r}
+fire_tracts <- 
+  fire.sf_192 %>% 
+  dplyr::select() %>% 
+  mutate(count = 1) %>% 
+  aggregate(., tracts, sum) %>%
+  mutate(count = ifelse(is.na(count), 0, count),
+         uniqueID = rownames(.),
+         cvID = sample(round(nrow(tracts) / 24), size=nrow(tracts), replace = TRUE))
+
+fire_tracts2 <- 
+  fire.sf_202 %>% 
+  dplyr::select() %>% 
+  mutate(count = 1) %>% 
+  aggregate(., tracts, sum) %>%
+  mutate(count = ifelse(is.na(count), 0, count),
+         uniqueID = rownames(.),
+         cvID = sample(round(nrow(tracts) / 24), size=nrow(tracts), replace = TRUE))
+
+tract19 <- ggplot() + 
+  geom_sf(data = fire_tracts, aes(fill = count)) +
+  scale_fill_viridis(option='inferno') +
+  labs(title = "Fire by Tract, 2019") +
+  mapTheme() 
+
+tract20 <- ggplot() + 
+  geom_sf(data = fire_tracts2, aes(fill = count)) +
+  scale_fill_viridis(option='inferno') +
+  labs(title = "Fire by Tract, 2020") +
+  mapTheme() 
+
+grid.arrange(tract19,tract20, nrow = 1)
+
+```
+
+```{r,results=FALSE}
+census <- get_acs(geography = "tract",
+                  variables=c("B01003_001", "B19013_001", 
+                              "B02001_002", "B01002_001","B06009_005"),
+                  key="d72b594e4d0f9b9b34217cdea8a4bcbc60354e21",
+                  state=42,
+                  geometry=TRUE,
+                  county=101,
+                  output="wide")
+
+census1 <- census%>%
+  rename(Total_Pop=B01003_001E,
+         Med_Inc=B19013_001E,
+         Med_Age=B01002_001E,
+         White_Pop=B02001_002E,
+         Bachelor_Pop=B06009_005E) %>%
+  dplyr::select(Total_Pop, Med_Inc, White_Pop,Bachelor_Pop, Med_Age,geometry) %>%
+  mutate(Percent_White = White_Pop / Total_Pop,Percent_Bachelor=Bachelor_Pop/ Total_Pop)%>%
+  dplyr::select(- White_Pop,-Bachelor_Pop)
+
+#write_csv(census1,'census1')
+
+parcel.sf2 <- 
+  st_join(parcel.sf2,census1%>% st_transform(2272),st_covered_by,left=TRUE) 
+
+```
+
+```{r}
+cen1 <- ggplot() + 
+  geom_sf(data = census1, aes(fill = Med_Inc)) +
+  scale_fill_viridis(option='inferno') +
+  labs(title = "Median Income, 2019") +
+  mapTheme() 
+
+cen2 <- ggplot() + 
+  geom_sf(data = census1, aes(fill = Med_Age)) +
+  scale_fill_viridis(option='inferno') +
+  labs(title = "Median Age, 2019") +
+  mapTheme() 
+
+cen3 <- ggplot() + 
+  geom_sf(data = census1, aes(fill = Total_Pop)) +
+  scale_fill_viridis(option='inferno') +
+  labs(title = "Total Population, 2019") +
+  mapTheme() 
+
+cen4 <- ggplot() + 
+  geom_sf(data = census1, aes(fill = Percent_White)) +
+  scale_fill_viridis(option='inferno') +
+  labs(title = "Percentage White, 2019") +
+  mapTheme() 
+
+grid.arrange(cen1,cen2,cen3,cen4, nrow = 2)
+
+```
+
+## Building Features
+
+We looked into all the properties in Philadelphia to examine whether there is a higher percentage of fire occurrence in the properties with certain features. 
+
+```{r}
+parcel.sf2_nobuilding<-parcel.sf2
+
+parcel.sf2 <-mutate(parcel.sf2, category = case_when(
+  category_code == 1  ~ "Residential",
+  category_code == 2  ~ "Hotels and Apartments",
+  category_code == 3  ~ "Store with Dwelling",
+  category_code == 4  ~ "Commercial",
+  category_code == 5  ~ "Industrial",
+  category_code == 6  ~ "Vacant Land"))
+
+parcel.sf2 <-mutate(parcel.sf2, interior = case_when(
+  interior_condition == 0  ~ "Not Applicable",
+  interior_condition == 2  ~ "New/Rehabbed",
+  interior_condition == 3  ~ "Above Average",
+  interior_condition == 4  ~ "Average",
+  interior_condition == 5  ~ "Below Average",
+  interior_condition == 6  ~ "Vacant",
+  interior_condition == 7  ~ "Sealed / Structurally Compromised"))
+
+parcel.sf2$year_built <- as.numeric(as.character(parcel.sf2$year_built))
+parcel.sf2 <-mutate(parcel.sf2, year_built_cat = case_when(
+  year_built >= 1600 & year_built < 1800 ~ "1600-1800",
+  year_built >= 1800 & year_built < 1900 ~ "1800s",
+  year_built >= 1900 & year_built < 2000  ~ "1900s",
+  year_built >= 2000 & year_built < 2010  ~ "2000-2010",
+  year_built >= 2010 & year_built < 2020  ~ "2010-2020",
+  year_built < 1000 | year_built >2020 ~ "Unknown"))
+
+```
+
+```{r}
+###EDA plot
+library(gridExtra)
+correlations <- read_csv("./data/statistics2.csv")
+
+histcom<-ggplot(correlations, aes(x = HasFire, y = Commercial,fill= HasFire)) + 
+  geom_bar(stat='identity', width =0.6) +
+  scale_fill_manual(values = palette2) +
+  theme_minimal() +
+  ylim(0,10) +
+  labs(y = "% Commercial", 
+       title = 'Parcels with Commercial Properties') +
+  theme(axis.title.x=element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5, size = 11))+
+  theme(axis.title.y = element_text(color = "grey20", size = 8))+
+  theme(legend.key.size = unit(0.5, 'cm'),legend.title = element_text(color = "grey20",size=9),legend.text = element_text(color = "grey20",size=8))
+#histcom
+
+histhot<-ggplot(correlations, aes(x = HasFire, y = Hotels_Apartments, fill= HasFire)) + 
+  geom_bar(stat='identity', width =0.6) +
+  scale_fill_manual(values = palette2) +
+  theme_minimal() +
+  ylim(0,30) +
+  labs(y = "% Hotels & Apartments", 
+       title = 'Parcels with Hotels & Apartments') +
+  theme(axis.title.x=element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5, size = 11))+
+  theme(axis.title.y = element_text(color = "grey20", size = 8))+
+  theme(legend.key.size = unit(0.5, 'cm'),legend.title = element_text(color = "grey20",size=9),legend.text = element_text(color = "grey20",size=8))
+#histhot
+
+histrm1<-ggplot(correlations, aes(x = HasFire, y = rm1, fill= HasFire)) + 
+  geom_bar(stat='identity', width =0.6) +
+  scale_fill_manual(values = palette2) +
+  theme_minimal() +
+  ylim(0,25) +
+  labs(y = "% RM1 Zoning Type", 
+       title = 'Parcels with RM1 Zoning Type') +
+  theme(axis.title.x=element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5, size = 11))+
+  theme(axis.title.y = element_text(color = "grey20", size = 8))+
+  theme(legend.key.size = unit(0.5, 'cm'),legend.title = element_text(color = "grey20",size=9),legend.text = element_text(color = "grey20",size=8))
+#histrm1
+
+histcmx2<-ggplot(correlations, aes(x = HasFire, y = cmx2, fill= HasFire)) + 
+  geom_bar(stat='identity', width =0.6) +
+  scale_fill_manual(values = palette2) +
+  theme_minimal() +
+  ylim(0,10) +
+  labs(y = "% CMX2 Zoning Type", 
+       title = 'Parcels with CMX2 Zoning Type') +
+  theme(axis.title.x=element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5, size = 11))+
+  theme(axis.title.y = element_text(color = "grey20", size = 8))+
+  theme(legend.key.size = unit(0.5, 'cm'),legend.title = element_text(color = "grey20",size=9),legend.text = element_text(color = "grey20",size=8))
+#histcmx2
+
+histsea<-ggplot(correlations, aes(x = HasFire, y = sealed, fill= HasFire)) + 
+  geom_bar(stat='identity', width =0.6) +
+  scale_fill_manual(values = palette2) +
+  theme_minimal() +
+  ylim(0,5) +
+  labs(y = "% Structurally Compromised", 
+       title = 'Parcels with Structurally Compromised Properties') +
+  theme(axis.title.x=element_blank()) +
+  theme(plot.title = element_text(hjust = 0, size = 11))+
+  theme(axis.title.y = element_text(color = "grey20", size = 8))+
+  theme(legend.key.size = unit(0.5, 'cm'),legend.title = element_text(color = "grey20",size=9),legend.text = element_text(color = "grey20",size=8))
+#histsea
+
+histbel<-ggplot(correlations, aes(x = HasFire, y = `below average`, fill= HasFire)) + 
+  geom_bar(stat='identity', width =0.6) +
+  scale_fill_manual(values = palette2) +
+  theme_minimal() +
+  ylim(0,5) +
+  labs(y = "% Below Average", 
+       title = 'Parcels with Properties which are below average') +
+  theme(axis.title.x=element_blank()) +
+  theme(plot.title = element_text(hjust = 0, size = 11))+
+  theme(axis.title.y = element_text(color = "grey20", size = 8))+
+  theme(legend.key.size = unit(0.5, 'cm'),legend.title = element_text(color = "grey20",size=9),legend.text = element_text(color = "grey20",size=8))
+#histbel
+
+grid.arrange(histcom, histhot, histrm1, histcmx2, histsea, histbel, nrow = 3)
+```
+
+As to property category, there is a higher percentage of fire occurrence in commercial, hotels and apartments properties.
+As to different zoning type. There is significantly higher propertion of fire occurred in the buildings of SPENT category. 
+Slightly more fire occurred in the properties which are sealed or structurally compromised.
+There is no significant difference for fire occurrence in properties with different age.
+
+## Code violation
+
+```{r}
+parcel.sf2_noviolation <- parcel.sf2
+#we only use 2019 violation data
+violation_all <- rbind(violation1,violation2)
+violation_all$year <- year(violation_all$violationdate)
+#violation_new = violation_all %>%filter(year <= 2020) %>%filter(is.na(opa_account_num)==FALSE)
+violation = violation_all %>%filter(year <= 2020) %>%filter(is.na(opa_account_num)==FALSE)
+
+violation <-mutate(violation, violation_summary = case_when(
+  str_detect(violationcodetitle, "UNSAFE STRUCTURE") == TRUE | str_detect(violationcodetitle, "UNSAFE CONDITIONS") == TRUE | str_detect(violationcodetitle, "INTERIOR UNSAFE") == TRUE | str_detect(violationcodetitle, "VACANT PROP UNSAFE") == TRUE ~ "UNSAFE STRUCTURE",
+  str_detect(violationcode, "FC-13") == TRUE | str_detect(violationcode, "FC-907.3") == TRUE | 
+    violationcodetitle == "ELECTRICAL -FIRE DAMAGED"~ "PROBLEMS WITH FIRE EQUIPTEMENT",
+  TRUE ~ "OTHERS"))
+
+###count of Previous Violations
+violation_count<-violation%>% 
+  group_by(opa_account_num)%>%
+  summarize(viol_count=n())
+
+violation_count_related<-violation %>%
+  filter(violation_summary == 'UNSAFE STRUCTURE'|violation_summary =='PROBLEMS WITH FIRE EQUIPTEMENT')%>%
+  group_by(opa_account_num) %>%
+  summarize(related_violation=n())
+
+violations_clean <- left_join(violation,violation_count, by='opa_account_num')
+violations_clean <- left_join(violations_clean,violation_count_related, by='opa_account_num')
+violations_clean$related_violation<-ifelse(!is.na(violations_clean$related_violation),
+                                          violations_clean$related_violation, 0)
+
+##had vilation before?
+violations_clean$had_relatedviolation<-ifelse(violations_clean$related_violation >0, 1,0)
+
+##owner count
+owner_count<-violations_clean%>% 
+  group_by(opa_owner)%>%
+  summarize(owner_count=n())
+owner_count <- owner_count[-c(1), ]
+
+violations_clean <- left_join(violations_clean,owner_count, by='opa_owner')
+violations_clean$owner_count<-ifelse(is.na(violations_clean$owner_count),1,violations_clean$owner_count)
+
+#type
+violations_clean$exterior<-ifelse(grepl("EXT", violations_clean$violationcodetitle), 1,0)
+violations_clean$interior<-ifelse(grepl("INT", violations_clean$violationcodetitle), 1,0)
+
+#time length in days
+violations_clean2<-violations_clean
+violations_clean2$now<-as.Date('2021-01-01')
+violations_clean2$violationsdate2<-as.Date(substring(violations_clean$violationdate,1,10))
+
+violations_clean3 <-
+  violations_clean2 %>%
+  mutate(now2 = ymd(now),
+         then2 = ymd(violationsdate2))
+
+violations_clean3$duration_sincelast_vio <- violations_clean3$now2-violations_clean3$then2
+
+violations_clean3$duration_sincelast_vio_num <- as.numeric(as.character(violations_clean3$duration_sincelast_vio))
+
+#num of ext/int
+violations_summed <-
+  violations_clean3 %>%
+  group_by(opa_account_num) %>%
+  summarise(had_extvio = sum(exterior),
+            had_intvio = sum(interior))
+violations_clean4<-left_join(violations_clean3,violations_summed, by='opa_account_num')
+
+##violation status##
+#table(violations_clean4$violationstatus)
+#table(violations_clean4$casestatus)
+violations_clean4$issue_fixed<-ifelse(violations_clean4$violationstatus=="COMPLIED",1, ifelse(violations_clean4$violationstatus=="RESOLVE", 1,0))
+violations_clean4$active_case<-ifelse(violations_clean4$casestatus=="CLOSED", 0, 1)
+
+#remove unecessary columns
+#sort(names(violations_clean4))
+colSums(is.na(violations_clean4))
+
+#violations_clean4$mostrecentinsp2<-as.Date(violations_clean4$mostrecentinsp)
+
+vio_clean_full<-subset(violations_clean4, 
+                       select=-c(objectid,addressobjectid,parcel_id_num, casenumber,
+                                 casecreateddate, casecompleteddate,casetype,
+                                 caseresponsibility, violationnumber,violationcode,
+                                 violationresolutiondate,violationresolutioncode,
+                                 unit_type, unit_num,zip,censustract,
+                                 systemofrecord,geocode_x,geocode_y,caseprioritydesc,
+                                  lat,lng,now, now2,then2,violationsdate2))
+
+colSums(is.na(vio_clean_full))
+
+violations_clean_unique <-
+  vio_clean_full %>%
+  group_by(opa_account_num) %>% 
+  slice(which.max(mostrecentinvestigation))
+
+X<-vio_clean_full %>%
+  filter(is.na(issue_fixed)==TRUE)
+
+unlist(lapply(violations_clean_unique,class))
+
+violations_clean_unique$exterior<-as.factor(violations_clean_unique$exterior)
+violations_clean_unique$interior <-as.factor(violations_clean_unique$interior)
+
+violations_clean_unique <- rename(violations_clean_unique, OPA_Num = opa_account_num)
+
+violations_clean_unique2<-subset(violations_clean_unique, 
+                       select=c(viol_count,related_violation, exterior,interior,
+                                duration_sincelast_vio_num,had_extvio,had_intvio,
+                                issue_fixed,active_case,OPA_Num))
+
+parcel.sf2 <- left_join(parcel.sf2,violations_clean_unique2,by='OPA_Num')
+##############
+#drop duplication
+violation_distinct <- violation_all %>% 
+  distinct(opa_account_num,violationcodetitle, .keep_all = TRUE)
+
+#check duplication
+#violation_group<- violation_distinct %>%group_by(opa_account_num)
+#violation_cnt<- summarise(violation_group,count = n())
+
+##violation status##
+#table(violation_distinct$violationstatus)
+#table(violation_distinct$casestatus)
+
+violation_distinct <-mutate(violation_distinct, violation_summary = case_when(
+  str_detect(violationcodetitle, "UNSAFE STRUCTURE") == TRUE | str_detect(violationcodetitle, "UNSAFE CONDITIONS") == TRUE | str_detect(violationcodetitle, "INTERIOR UNSAFE") == TRUE | str_detect(violationcodetitle, "VACANT PROP UNSAFE") == TRUE ~ "UNSAFE STRUCTURE",
+  str_detect(violationcode, "FC-13") == TRUE | str_detect(violationcode, "FC-907.3") == TRUE | 
+    violationcodetitle == "ELECTRICAL -FIRE DAMAGED"~ "PROBLEMS WITH FIRE EQUIPTEMENT",
+  TRUE ~ "OTHERS"))
+violation_distinct <- rename(violation_distinct, OPA_Num = opa_account_num)
+
+violation_unsafe = violation_distinct %>%filter(violation_summary=="UNSAFE STRUCTURE")
+violation_equip = violation_distinct %>%filter(violation_summary=="PROBLEMS WITH FIRE EQUIPTEMENT")
+
+#drop duplication again
+violation_unsafe <- violation_unsafe %>% 
+  distinct(OPA_Num,violation_summary, .keep_all = TRUE)
+violation_equip <- violation_unsafe %>% 
+  distinct(OPA_Num,violation_summary, .keep_all = TRUE)
+
+violation_unsafe_sub <- subset(violation_unsafe,select=c(violation_summary,OPA_Num))
+violation_unsafe_sub  <- rename(violation_unsafe_sub, vio_unsafe = violation_summary)
+violation_equip_sub <- subset(violation_equip,select=c(violation_summary,OPA_Num))
+violation_equip_sub <- rename(violation_equip_sub, vio_equip = violation_summary)
+
+parcel.sf2 <- left_join(parcel.sf2,violation_unsafe_sub,by='OPA_Num')
+parcel.sf2 <- left_join(parcel.sf2,violation_equip_sub,by='OPA_Num')
+
+parcel.sf2 <-mutate(parcel.sf2, isunsafe = case_when(
+  is.na(vio_unsafe) == FALSE  ~ "Is safe",
+  is.na(vio_unsafe) == TRUE  ~ "Is unsafe"))
+
+parcel.sf2 <-mutate(parcel.sf2, equip_pro = case_when(
+  is.na(vio_equip) == FALSE  ~ "no problem",
+  is.na(vio_equip) == TRUE  ~ "has problem"))
+```
+
+```{r}
+#violation plot
+histuns<-ggplot(correlations, aes(x = HasFire, y = `unsafe structure`, fill= HasFire)) + 
+  geom_bar(stat='identity', width =0.6) +
+  scale_fill_manual(values = palette2) +
+  theme_minimal() +
+  ylim(0,5) +
+  labs(y = "% Unsafe Structure", 
+       title = 'Parcels with Properties which \n have unsafe structure') +
+  theme(axis.title.x=element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5, size = 13))+
+  theme(axis.title.y = element_text(color = "grey20", size = 10))+
+  theme(legend.key.size = unit(0.5, 'cm'),legend.title = element_text(color = "grey20",size=9),legend.text = element_text(color = "grey20",size=10))
+#histuns
+
+histequ<-ggplot(correlations, aes(x =HasFire, y = `fire equriment`, fill= HasFire)) + 
+  geom_bar(stat='identity', width =0.6) +
+  scale_fill_manual(values = palette2) +
+  theme_minimal() +
+  ylim(0,15) +
+  labs(y = "% Have Problems with Fire Equipment", 
+       title = 'Parcels with Properties which have \n Problems with Fire Equipment') +
+  theme(axis.title.x=element_blank()) +
+  theme(plot.title = element_text(hjust = 0.5, size = 13))+
+  theme(axis.title.y = element_text(color = "grey20", size = 10))+
+  theme(legend.key.size = unit(0.5, 'cm'),legend.title = element_text(color = "grey20",size=9),legend.text = element_text(color = "grey20",size=10))
+#histequ
+grid.arrange(histuns,histequ, nrow = 1)
+```
+
+## 311 Request
+
+```{r,results=FALSE}
+request <- read_csv("./data/public_cases_fc2019.csv") %>%
+  drop_na(lat)
+
+request.sf    <- request %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) %>%
+  st_transform(2272)
+```
+
+```{r}
+parcel.sf2$request19.nn5 <-nn_function(st_coordinates(parcel.sf2),st_coordinates(request.sf),5) 
+request.sf2 <- request.sf %>% filter(request.sf$service_name == 'Alley Light Outage') 
+parcel.sf2$light.nn5 <-nn_function(st_coordinates(parcel.sf2),st_coordinates(request.sf2),5)
+request.sf3 <- request.sf %>% filter(request.sf$service_name == 'No Heat (Residential)' ) 
+parcel.sf2$heat.nn5 <-nn_function(st_coordinates(parcel.sf2),st_coordinates(request.sf3),5)
+request.sf4 <- request.sf %>% filter(request.sf$service_name == 'Fire Residential or Commercial') 
+parcel.sf2$fire311.nn5 <-nn_function(st_coordinates(parcel.sf2),st_coordinates(request.sf4),5)
+request.sf5 <- request.sf %>% filter(request.sf$service_name == 'Infestation Residential' ) 
+parcel.sf2$infestation.nn5 <-nn_function(st_coordinates(parcel.sf2),st_coordinates(request.sf5),5)
+request.sf6 <- request.sf %>% filter(request.sf$service_name == 'Smoke Detector' ) 
+parcel.sf2$Detector.nn5 <-nn_function(st_coordinates(parcel.sf2),st_coordinates(request.sf6),5)
+request.sf7    <- request.sf %>% filter(request.sf$service_name == 'Building Dangerous' ) 
+parcel.sf2$Dangerous.nn5 <-nn_function(st_coordinates(parcel.sf2),st_coordinates(request.sf7),5)
+
+```
+
+```{r}
+## summary all 311
+request19 <- parcel.sf2 %>%
+    ggplot(aes(isfire, request19.nn5, fill=isfire)) + 
+      geom_bar(position = "dodge", stat = "summary", fun.y = "mean", width =0.6) + 
+      scale_fill_manual(values = palette2) +
+     # ylim(0,90)+
+      labs(x="isfire", y="Value", 
+           title = "311 Request associations with the\n likelihood of fire (2019, nearest 5)") +
+      theme(legend.position = "none") +
+      theme(plot.title = element_text(hjust = 0.5, size = 10))+
+      theme(axis.title.y = element_text(color = "grey20", size = 8))
+#request19
+
+light <- parcel.sf2 %>%
+    ggplot(aes(isfire, light.nn5, fill=isfire)) + 
+      geom_bar(position = "dodge", stat = "summary", fun.y = "mean", width =0.6) + 
+      scale_fill_manual(values = palette2) +
+      labs(x="isfire", y="Value", 
+           title = "Alley Light Outage associations with\n the likelihood of fire (2019, nearest 5)") +
+      theme(legend.position = "none")+
+      theme(plot.title = element_text(hjust = 0.5, size = 10))+
+      theme(axis.title.y = element_text(color = "grey20", size = 8))
+
+heat <- parcel.sf2 %>%
+    ggplot(aes(isfire, heat.nn5, fill=isfire)) + 
+      geom_bar(position = "dodge", stat = "summary", fun.y = "mean", width =0.6) + 
+      scale_fill_manual(values = palette2) +
+      labs(x="isfire", y="Value", 
+           title = "No Heat (Residential) associations with\n the likelihood of fire (2019, nearest 5)") +
+      theme(legend.position = "none")+
+      theme(plot.title = element_text(hjust = 0.5, size = 10))+
+      theme(axis.title.y = element_text(color = "grey20", size = 8))
+
+fire311 <- parcel.sf2 %>%
+    ggplot(aes(isfire, fire311.nn5, fill=isfire)) + 
+      geom_bar(position = "dodge", stat = "summary", fun.y = "mean", width =0.6) + 
+      scale_fill_manual(values = palette2) +
+      labs(x="isfire", y="Value", 
+           title = "Fire Residential or Commercial associations with\n the likelihood of fire (2019, nearest 5)") +
+      theme(legend.position = "none")+
+      theme(plot.title = element_text(hjust = 0.5, size = 10))+
+      theme(axis.title.y = element_text(color = "grey20", size = 8))
+
+infestation <- parcel.sf2 %>%
+    ggplot(aes(isfire, infestation.nn5, fill=isfire)) + 
+      geom_bar(position = "dodge", stat = "summary", fun.y = "mean", width =0.6) + 
+      scale_fill_manual(values = palette2) +
+      labs(x="isfire", y="Value", 
+           title = "Infestation Residential associations with\n the likelihood of fire (2019, nearest 5)") +
+      theme(legend.position = "none")+
+      theme(plot.title = element_text(hjust = 0.5, size = 10))+
+      theme(axis.title.y = element_text(color = "grey20", size = 8))
+
+Detector <- parcel.sf2 %>%
+    ggplot(aes(isfire, Detector.nn5, fill=isfire)) + 
+      geom_bar(position = "dodge", stat = "summary", fun.y = "mean", width =0.6) + 
+      scale_fill_manual(values = palette2) +
+      labs(x="isfire", y="Value", 
+           title = "Smoke Detector associations with\n the likelihood of fire (2019, nearest 5)") +
+      theme(legend.position = "none")+
+      theme(plot.title = element_text(hjust = 0.5, size = 10))+
+      theme(axis.title.y = element_text(color = "grey20", size = 8))
+
+Dangerous <- parcel.sf2 %>%
+    ggplot(aes(isfire, Dangerous.nn5, fill=isfire)) + 
+      geom_bar(position = "dodge", stat = "summary", fun.y = "mean", width =0.6) + 
+      scale_fill_manual(values = palette2) +
+      labs(x="isfire", y="Value", 
+           title = "Building Dangerous associations with \nthe likelihood of fire (2019, nearest 5)") +
+      theme(legend.position = "none")+
+      theme(plot.title = element_text(hjust = 0.5, size = 10))+
+      theme(axis.title.y = element_text(color = "grey20", size = 8))
+
+grid.arrange(request19,light,heat,fire311,infestation,Detector,Dangerous, nrow = 4)
+
+```
+
+# Modeling
+
+```{r}
+library(plotROC)
+library(pROC)
+library(pscl)
+
+model_data <- parcel.sf2 
+
+#colSums(is.na(parcel.sf2))
+model_data <- subset(model_data, select = c(lagfire20.nn5, lagfire19.nn5, lagfire18.nn5,
+                                             lagfire17.nn5, lagfire16.nn5, lagfire15.nn5,
+                                             category, interior.x,vio_unsafe, vio_equip,
+                                             request19.nn5, light.nn5, heat.nn5, 
+                                             fire311.nn5, infestation.nn5, Detector.nn5,                                             Dangerous.nn5,isfire,zoning,census_tract,Total_Pop,
+                                            Med_Inc,Med_Age,Percent_White
+                                            ,descript,viol_count,related_violation, exterior,
+                                            interior.y, duration_sincelast_vio_num,had_extvio,
+                                had_intvio,issue_fixed,active_case))
+colSums(is.na(model_data))
+
+model_data$fire <- ifelse(model_data$isfire=='Have fire',1,0)
+table(model_data$fire)
+
+model_data$isunsafe<-ifelse(is.na(model_data$vio_unsafe),0,1)
+model_data$noequip<-ifelse(is.na(model_data$vio_equip),0,1)
+model_data$iscom<-ifelse(model_data$category=='Commercial',1,0)
+model_data$ishotel<-ifelse(model_data$category=='Hotels and Apartments',1,0)
+model_data$isRM1<-ifelse(is.na(model_data$zoning)|model_data$zoning!='RM1',0,1)
+model_data$isCMX2<-ifelse(is.na(model_data$zoning)|model_data$zoning!='CMX2',0,1)
+model_data$issealed<-ifelse(is.na(model_data$interior.x)|model_data$interior.x!='Sealed / Structurally Compromised',0,1)
+model_data$isbelow<-ifelse(is.na(model_data$interior.x)|model_data$interior.x!='Below Average',0,1)
+
+model_data$Med_Inc <-ifelse(is.na(model_data$Med_Inc),0,model_data$Med_Inc)
+model_data$Med_Age<-ifelse(is.na(model_data$Med_Age),0,model_data$Med_Age)
+model_data$Percent_White<-ifelse(is.na(model_data$Percent_White),0,model_data$Percent_White)
+
+#violation
+model_data$viol_count<-ifelse(is.na(model_data$viol_count),0,model_data$viol_count)
+model_data$related_violation<-ifelse(is.na(model_data$related_violation),0,model_data$related_violation)
+model_data$exterior<-ifelse(is.na(model_data$exterior),0,model_data$exterior)
+model_data$interior.y<-ifelse(is.na(model_data$interior.y),0,model_data$interior.y)
+model_data$duration_sincelast_vio_num<-ifelse(is.na(model_data$duration_sincelast_vio_num),0,model_data$duration_sincelast_vio_num)
+model_data$had_extvio <-ifelse(is.na(model_data$had_extvio),0,model_data$had_extvio)
+model_data$had_intvio<-ifelse(is.na(model_data$had_intvio),0,model_data$had_intvio)
+model_data$issue_fixed<-ifelse(is.na(model_data$issue_fixed),0,model_data$issue_fixed)
+model_data$active_case<-ifelse(is.na(model_data$active_case),0,model_data$active_case)
+
+####Down sampling
+model_data_havefire = model_data %>%
+  filter(fire ==1)
+
+"model_data_havefire = model_data_havefire%>%
+  filter(model_data_havefire$descript == 'Building Fire, No Collapse' |model_data_havefire$descript =='Building fire' )"
+model_data_havefire<- subset(model_data_havefire, select = c(-descript))
+#table(model_data_havefire$fire)
+
+model_data_nofire= model_data %>% filter(fire == 0)
+#table(model_data_nofire$fire)
+
+#select 108920 random rows from temp 0 (27230 *4=108920)
+random_nofire <- model_data_nofire[sample(nrow(model_data_nofire), nrow(model_data_havefire)*2), ]
+random_nofire<- subset(random_nofire, select = c(-descript))
+
+#rbind 8900 rows of 0 to the 2225 rows of 1
+model_data_new <- rbind(model_data_havefire,random_nofire)
+
+#shuffle rows - generate a random ordering
+set.seed(2021) ## make reproducible here, but not if generating many random samples
+rand <- sample(nrow(model_data_new))
+model_data_new<-model_data_new[rand,]
+
+model_data_new2<-model_data_new %>% st_set_geometry(NULL)
+  
+####Modeling
+set.seed(3456)
+trainIndex <- createDataPartition(model_data_new2$fire, p = .75,
+                                  list = FALSE,
+                                  times = 1)
+Train <- model_data_new2[ trainIndex,]
+Test  <- model_data_new2[-trainIndex,]
+
+#logistic regression
+log_reg <- glm(fire ~ ., data=Train %>% 
+                 dplyr::select(-category, -interior.x, -vio_unsafe,
+                               -vio_equip,-zoning,-isfire,-census_tract),
+                  family="binomial" (link="logit"))
+
+summary(log_reg)
+pR2(log_reg)
+
+```
+
+```{r}
+testProbs <- data.frame(Outcome = as.factor(Test$fire),
+                        Probs = predict(log_reg, Test, type= "response"))
+# head(testProbs)
+
+```
+
+```{r}
+ggplot(testProbs, aes(x = Probs, fill = as.factor(Outcome))) + 
+  geom_density() +
+  facet_grid(Outcome ~ .) +
+  scale_fill_manual(values = palette3) +
+  labs(x = "Fire", y = "Density of probabilities",
+       title = "Distribution of predicted probabilities by observed outcome") +
+  theme(strip.text.x = element_text(size = 18),
+        legend.position = "none")
+```
+
+```{r}
+testProbs <- 
+  testProbs %>%
+  mutate(predOutcome  = as.factor(ifelse(testProbs$Probs > 0.35 , 1, 0)))
+
+# testProbs
+```
+
+
+The Model is better at predicting those parcels that don't have fire occurance
+
+```{r}
+#(1)Accuracy: the rate of true positives plus true negatives divided by the total number of observations.
+#(2)Sensitivity(true positive rate): the proportion of actual positives (1’s) that were predicted to be positive
+#(3)Specificity(true negative rate): the proportion of actual negatives (0’s) that were predicted to be negatives
+caret::confusionMatrix(testProbs$predOutcome, testProbs$Outcome, 
+                       positive = "1")
+```
+
+```{r}
+ggplot(testProbs, aes(d = as.numeric(testProbs$Outcome), m = Probs)) +
+  geom_roc(n.cuts = 50, labels = FALSE, colour = "#FE9900") +
+  style_roc(theme = theme_grey) +
+  geom_abline(slope = 1, intercept = 0, size = 1.5, color = 'grey') +
+  labs(title = "ROC Curve - logistic regression model")
+```
+
+```{r}
+##### count/kernel density/knn functions #####
+# count function 
+count_net <- function(data,fishnetGrid, name){
+  count<- data %>% #get count by fishnet
+    dplyr::select() %>% 
+    mutate(count = 1) %>% 
+    aggregate(., fishnetGrid, sum) %>%
+    mutate(count = ifelse(is.na(count), 0, count),uniqueID = rownames(.))%>%
+    plyr::rename(.,c('count' = name))
+  return (count)
+}
+
+# kernel density function 
+kernelDensity <- function(data, fishnetGrid, name){
+  count<- data %>% #get count by fishnet
+    dplyr::select() %>% 
+    mutate(count = 1) %>% 
+    aggregate(., fishnetGrid, sum) %>%
+    mutate(count = ifelse(is.na(count), 0, count),
+           uniqueID = rownames(.),
+           cvID = sample(round(nrow(fishnetGrid) / 24), size=nrow(fishnetGrid), replace = TRUE))
+  
+  point_ppp <- as.ppp(st_coordinates(data), W = st_bbox(count))
+  KD <- spatstat::density.ppp(point_ppp, 1000)
+  
+  KD_dataframe<-as.data.frame(KD) %>% 
+    st_as_sf(coords = c("x", "y"), crs = st_crs(fishnetGrid)) %>%
+    aggregate(.,fishnetGrid, mean)%>%plyr::rename(.,c('value' = name))
+  
+  return(KD_dataframe)
+}
+
+kernelDensity_year <- function(pointData, year, fishnetGrid, name){
+  data<-pointData %>%filter(Year == year)
+  count<- data %>% #get count by fishnet
+    dplyr::select() %>% 
+    mutate(count = 1) %>% 
+    aggregate(., fishnetGrid, sum) %>%
+    mutate(count = ifelse(is.na(count), 0, count),
+           uniqueID = rownames(.),
+           cvID = sample(round(nrow(fishnetGrid) / 24), size=nrow(fishnetGrid), replace = TRUE))
+  
+  point_ppp <- as.ppp(st_coordinates(data), W = st_bbox(count))
+  KD <- spatstat::density.ppp(point_ppp, 1000)
+  
+  KD_dataframe<-as.data.frame(KD) %>% 
+    st_as_sf(coords = c("x", "y"), crs = st_crs(fishnetGrid)) %>%
+    aggregate(.,fishnetGrid, mean)%>%plyr::rename(.,c('value' = name))
+  
+  return(KD_dataframe)
+}
+
+#Nearest neighbor (NND) function
+nn_function <- function(measureFrom,measureTo,k) {
+  measureFrom_Matrix <-
+    as.matrix(measureFrom)
+  measureTo_Matrix <-
+    as.matrix(measureTo)
+  nn <-   
+    get.knnx(measureTo, measureFrom, k)$nn.dist
+  output <-
+    as.data.frame(nn) %>%
+    rownames_to_column(var = "thisPoint") %>%
+    gather(points, point_distance, V1:ncol(.)) %>%
+    arrange(as.numeric(thisPoint)) %>%
+    group_by(thisPoint) %>%
+    dplyr::summarize(pointDistance = mean(point_distance)) %>%
+    arrange(as.numeric(thisPoint)) %>% 
+    dplyr::select(-thisPoint) %>%
+    pull()
+  return(output)  
+}
+```
+
+```{r}
+##### DATA (external sources)#####
+#load the boundary data
+philly<- st_read("http://data.phl.opendata.arcgis.com/datasets/405ec3da942d4e20869d4e1449a2be48_0.geojson") %>%
+  st_set_crs(4326) %>%
+  na.omit() %>%
+  st_transform(2272)
+
+# load the neighborhood data
+neighbor  <- 
+  st_read("https://raw.githubusercontent.com/azavea/geo-data/master/Neighborhoods_Philadelphia/Neighborhoods_Philadelphia.geojson")%>%
+  st_set_crs(4326) %>%
+  na.omit() %>%
+  st_transform(crs=2272)
+
+# load the census tracts data
+tracts <- 
+  st_read("http://data.phl.opendata.arcgis.com/datasets/ccdc0d022f4949a7b11333bd37231aef_0.geojson")%>%
+  st_set_crs(4326) %>%
+  na.omit() %>%
+  st_transform(crs=2272)
+
+##### Creat 800*800 fishnet ####
+# Fire hydrants shall be provided for detached one- and two-family dwellings in accordance with both of the following: 
+# (1) The maximum distance to a fire hydrant from the closest point on the building shall not exceed 600 ft (122183 m).
+# (2) The maximum distance between fire hydrants shall not exceed 800 ft (244 m).
+# create the 800ft grid cell fishnet
+fishnet <- 
+  st_make_grid(philly, cellsize = 800) %>%
+  st_sf()
+# clip the fishnet by the boundary
+fishnet <- 
+  fishnet[philly,] %>%
+  mutate(uniqueID = rownames(.)) %>%
+  dplyr::select(uniqueID)
+
+##### Load fire data to the fishnet#####
+fire_fishnet <- 
+  fire.sf %>% 
+  dplyr::select() %>% 
+  mutate(count = 1) %>% 
+  aggregate(., fishnet, sum) %>%
+  mutate(count = ifelse(is.na(count), 0, count),
+         uniqueID = rownames(.),
+         cvID = sample(round(nrow(fishnet) / 24), size=nrow(fishnet), replace = TRUE))
+```
+
+```{r}
+fire_fishnet$request19.nn3 <-nn_function(st_coordinates(st_centroid(fire_fishnet)),st_coordinates(st_centroid(request.sf)),3) 
+fire_fishnet$light.nn3 <-nn_function(st_coordinates(st_centroid(fire_fishnet)),st_coordinates(st_centroid(request.sf2)),3) 
+fire_fishnet$heat.nn3 <-nn_function(st_coordinates(st_centroid(fire_fishnet)),st_coordinates(st_centroid(request.sf3)),3) 
+fire_fishnet$fire311.nn3 <-nn_function(st_coordinates(st_centroid(fire_fishnet)),st_coordinates(st_centroid(request.sf4)),3) 
+fire_fishnet$infestation.nn3 <-nn_function(st_coordinates(st_centroid(fire_fishnet)),st_coordinates(st_centroid(request.sf5)),3) 
+fire_fishnet$Detector.nn3 <-nn_function(st_coordinates(st_centroid(fire_fishnet)),st_coordinates(st_centroid(request.sf6)),3) 
+fire_fishnet$Dangerous.nn3 <-nn_function(st_coordinates(st_centroid(fire_fishnet)),st_coordinates(st_centroid(request.sf7)),3) 
+```
+
+```{r}
+fire_fishnet$lagfire15.nn3 <-nn_function(st_coordinates(st_centroid(fire_fishnet)),st_coordinates(st_centroid(fire.sf_152)),3)
+fire_fishnet$lagfire16.nn3 <-nn_function(st_coordinates(st_centroid(fire_fishnet)),st_coordinates(st_centroid(fire.sf_162)),3)
+fire_fishnet$lagfire17.nn3 <-nn_function(st_coordinates(st_centroid(fire_fishnet)),st_coordinates(st_centroid(fire.sf_172)),3)
+fire_fishnet$lagfire18.nn3 <-nn_function(st_coordinates(st_centroid(fire_fishnet)),st_coordinates(st_centroid(fire.sf_182)),3)
+fire_fishnet$lagfire19.nn3 <-nn_function(st_coordinates(st_centroid(fire_fishnet)),st_coordinates(st_centroid(fire.sf_192)),3)
+fire_fishnet$lagfire20.nn3 <-nn_function(st_coordinates(st_centroid(fire_fishnet)),st_coordinates(st_centroid(fire.sf_202)),3)
+```
+
+
+```{r}
+fire_fishnet <- 
+  st_join(fire_fishnet,census1%>% st_transform(2272),st_covered_by,left=TRUE) 
+
+fire_fishnet[is.na(fire_fishnet)] <- 0
+```
+
+```{r}
+fire_fishnet <-
+  st_join(fire_fishnet, dplyr::select(neighbor, NAME),st_nearest_feature,left=TRUE) %>%
+  st_set_geometry(NULL) %>%
+  left_join(dplyr::select(fishnet, geometry, uniqueID)) %>%
+  st_sf() %>%
+  na.omit()
+```
+
+## property level input (fishnet)
+
+```{r}
+fishnet_meanVal<-fire_fishnet %>% 
+  dplyr::select('val_per_size') %>% 
+  #mutate(count = 1) %>% 
+  aggregate(., fishnet, mean)%>%
+  mutate(#count = ifelse(is.na(count), 0, count),
+         uniqueID = rownames(.),
+         cvID = sample(round(nrow(fishnet) / 24), size=nrow(fishnet), replace = TRUE))%>%
+  mutate(val_per_size=replace_na(val_per_size,0))
+
+# join the above data
+val_age <-st_join(fishnet_meanVal, fishnet_medianAge %>% dplyr::select('building_age') %>% st_centroid(.))%>%
+  dplyr::select(-uniqueID,-cvID)
+var_fishnet <- st_join(var_fishnet,val_age,join=st_equals,left=TRUE)
+
+```
+
+```{r}
+# correlation Matrix between predictors and DV
+col <- colorRampPalette(c("#61c0bf", "#bbded6", "#f8f8f8","#ffb6b9","#fc7978"))
+
+Cor_env <- 
+  train %>% 
+  st_set_geometry(NULL) %>%
+  dplyr::select(count,fire.isSig,fire.isSig.dist,hydrant_KD,tree.nn20,tree_count,percent_residential,
+                percent_commercial,percent_industrial,val_per_size,building_age) 
+corrplot(cor(Cor_env), method = "color", col = col(10),
+         type = "upper",  number.cex = .7,
+         addCoef.col = "white", # Add coefficient of correlation
+         tl.col = "black", tl.srt = 90, # Text label color and rotation
+         diag = TRUE)
+
+Cor_risk <- 
+  train %>% 
+  st_set_geometry(NULL) %>%
+  dplyr::select(count,unsafe.nn3,ID.nn3,ALM.nn3,unsafe_count,ID_count,ALM_count,hydrant_Down.nn3,hydrant_req.nn3,smoke_dector.nn3,complainfire.nn3,FireRes_or_Com.nn3,
+                hydrant_Down_count,hydrant_req_count,smoke_dector_count,complainfire_count,FireRes_or_Com_count,crime.nn3) 
+corrplot(cor(Cor_risk), method = "color", col = col(20),
+         type = "upper", number.cex = .7,
+         addCoef.col = "white", # Add coefficient of correlation
+         tl.col = "black", tl.srt = 90, # Text label color and rotation
+         diag = TRUE)
+
+Cor_demo <- 
+  train %>% 
+  st_set_geometry(NULL) %>%
+  dplyr::select(count,Total_Pop,Med_Inc,Med_Age,Percent_White,Percent_Bachelor) 
+corrplot(cor(Cor_demo), method = "color", col = col(20),
+         type = "upper", order = "alphabet", number.cex = .7,
+         addCoef.col = "white", # Add coefficient of correlation
+         tl.col = "black", tl.srt = 90, # Text label color and rotation
+         diag = TRUE)
+
+Cor_lag <- 
+  train %>% 
+  st_set_geometry(NULL) %>%
+  dplyr::select(count,lagfire18.nn5,lagfire17.nn5,lagfire16.nn5,lagfire15.nn5) 
+corrplot(cor(Cor_lag), method = "color", col = col(10),
+         type = "upper", order = "alphabet", number.cex = .7,
+         addCoef.col = "white", # Add coefficient of correlation
+         tl.col = "black", tl.srt = 90, # Text label color and rotation
+         diag = TRUE)
+
+#correlation Matirix between predictors
+ Cor <- 
+   train %>% 
+   st_set_geometry(NULL) %>%
+   dplyr::select(-uniqueID, -cvID,-hydrant_count,-count,-percent_residential,-percent_commercial,-percent_industrial,-NAME) 
+ 
+ corrplot(cor(Cor), method = "color", col = col(20),
+          type = "upper", order = "alphabet", number.cex = .5,
+          addCoef.col = "white", # Add coefficient of correlation
+          tl.col = "black", tl.srt = 90, # Text label color and rotation
+          diag = TRUE)
+```
+
+
+### random forest 
+
+```{r}
+library(ranger)
+
+"model_data$Med_Inc <-ifelse(is.na(model_data$Med_Inc),0,model_data$Med_Inc)
+model_data$Med_Age<-ifelse(is.na(model_data$Med_Age),0,model_data$Med_Age)
+model_data$Percent_White<-ifelse(is.na(model_data$Percent_White),0,model_data$Percent_White)"
+
+####Down sampling
+model_data_havefire = model_data %>%
+  filter(fire ==1)
+
+#model_data_havefire<- subset(model_data_havefire, select = c(-descript))
+#table(model_data_havefire$fire)
+
+model_data_nofire= model_data %>% filter(fire == 0)
+#table(model_data_nofire$fire)
+
+random_nofire <- model_data_nofire[sample(nrow(model_data_nofire), nrow(model_data_havefire)*4), ]
+#random_nofire<- subset(random_nofire, select = c(-descript))
+
+model_data_new <- rbind(model_data_havefire,random_nofire)
+model_data_new$fire = as.factor(model_data_new$fire)
+
+set.seed(2021) 
+rand <- sample(nrow(model_data_new))
+model_data_new<-model_data_new[rand,]
+
+model_data_new2<-model_data_new %>% st_set_geometry(NULL)
+  
+####Modeling
+set.seed(3456)
+trainIndex <- createDataPartition(model_data_new2$fire, p = .75,
+                                  list = FALSE,
+                                  times = 1)
+Train <- model_data_new2[ trainIndex,]
+Test  <- model_data_new2[-trainIndex,]
+
+## ranger model1
+ranger_model <- ranger(
+    formula         = fire ~ ., 
+    data=Train %>% 
+                 dplyr::select(-category, -interior.x, -vio_unsafe,
+                               -vio_equip,-zoning,-isfire,-descript), verbose = FALSE, importance = "impurity")
+print(ranger_model)
+#importance_pvalues(rf.sim, method = "janitza")
+
+pred_ranger <- predict(ranger_model, Test)$predictions
+#pred_ranger <- predict(ranger_model, Test)
+
+Range.ConMatx = confusionMatrix(pred_ranger, 
+                                Test$fire, positive = "1")
+Range.ConMatx
+
+```
+
+```{r,results=FALSE}
+t <- data.frame(ranger_model$variable.importance)
+importance<-as.numeric(ranger_model$variable.importance)
+variable<-row.names(t)
+DF<-cbind(variable,importance)
+DF<-as.data.frame(DF)
+head(data.frame(ranger_model$variable.importance),20)
+
+```
+
+#### ranger model(probability)
+```{r,results=FALSE}
+ranger_model2 <- ranger(
+    formula         = fire ~ ., 
+    data=Train %>% 
+                 dplyr::select(-category, -interior, -vio_unsafe,
+                               -vio_equip,-zoning,-isfire)
+    , probability = TRUE, verbose = FALSE)
+
+pred_ranger2 <- predict(ranger_model2, Test)
+#length(pred_ranger2$predictions)
+
+probabilities <- as.data.frame(predict(ranger_model2, Test)$predictions)
+
+confusionMatrix(as.factor(max.col(probabilities)-1), as.factor(Test$fire), positive = "1")
+
+auc(testProbs$Outcome, testProbs$Probs)
+
+```
+
+```{r}
+testProbs_ranger <- data.frame(Outcome = as.factor(Test$fire),
+                        predOutcome = max.col(probabilities)-1,
+                        Probs=probabilities[,2])
+
+ggplot(testProbs_ranger, aes(x = Probs, fill = as.factor(Outcome))) + 
+  geom_density() +
+  facet_grid(Outcome ~ .) +
+  scale_fill_manual(values = palette3) +
+  labs(x = "Fire", y = "Density of probabilities",
+       title = "Distribution of predicted probabilities by observed outcome") +
+  theme(strip.text.x = element_text(size = 18),
+        legend.position = "none")
+```
+
+```{r}
+ggplot(testProbs_ranger, aes(d = as.numeric(testProbs_ranger$Outcome), m = Probs)) +
+  geom_roc(n.cuts = 50, labels = FALSE, colour = "#FE9900") +
+  style_roc(theme = theme_grey) +
+  geom_abline(slope = 1, intercept = 0, size = 1.5, color = 'grey') +
+  labs(title = "ROC Curve - ranger model",subtitle = 'AUC = 0.6747')
+
+#auc(testProbs_ranger$Outcome, testProbs_ranger$Probs)
+```
+# Next Steps
+
+* Finalize reasampling & feature engineering in glm
+* Confusion matrix -> threshold
+* Generalizability check
+* Enhance model with random forest
+* Store model to api
+* api interface
+
+```{r,results=FALSE}
+library(tidyverse)
+library(httr)
+
+base_url <- "http://api.phila.gov/ais_doc/v1/"
+endpoint <- "search/"
+address  <- "1234%20market%20st"
+key      <- "?gatekeeperKey=6ba4de64d6ca99aa4db3b9194e37adbf"
+url <- paste(base_url, endpoint, address, key, sep="")
+
+# response <- httr::GET("http://api.phila.gov/ais_doc/v1/search/1234%20market%20st?gatekeeperKey=6ba4de64d6ca99aa4db3b9194e37adbf")
+response <- httr::GET(url)
+tidy_res <- httr::content(response, simplifyVector=TRUE)
+
+glimpse(tidy_res$features)
+glimpse(tidy_res$features$properties)
+glimpse(tidy_res$features$geometry)
+```
