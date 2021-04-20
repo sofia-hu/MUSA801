@@ -1,221 +1,1186 @@
 {
-  "status": [
-    "SUCCESS"
-  ],
-  "code": [
-    "200"
-  ],
   "parcel_df": [
     {
-      "Address": "2451%20N%2027TH%20ST",
-      "Opa_account_num": "281063200",
-      "Parcel_id": "031N240123",
-      "Parcel_centroid_x": -8368561.3029,
-      "Parcel_centroid_y": 4864975.5098,
-      "Parcel_shape__Area": 126.4922,
-      "Parcel_Shape__Length": 56.2093
+      "Address": "1200%20W%20VENANGO%20ST",
+      "Opa_account_num": "%27432031110%27",
+      "Parcel_Id": "044N130063",
+      "Parcel_centroid_lat": -8365448.1005,
+      "Parcel_centroid_lng": 4866972.6448
     }
   ],
   "properties_df": [
     {
-      "total_area": 795.15,
-      "total_livable_area": 840,
-      "zoning": "RSA5",
-      "category": "Residential",
-      "interior": "Above Average"
+      "zoning": "RM1",
+      "category": "Vacant Land"
+    }
+  ],
+  "violation_df": [
+    {
+      "vio_code": "PM-302.4/3",
+      "vio_title": "DRAINAGE-AFFECTING ADJ/PROP"
     }
   ],
   "census_df": [
     {
-      "census_tract": "016901",
-      "census_block": "2002"
+      "census_tract": "020300",
+      "census_block": "1017",
+      "population": 2842,
+      "white_population": 68,
+      "black_population": 2322,
+      "median_income": 17219
     }
   ],
-  "request311": [
+  "request311_within100m": [
     {
-      "service_request_id": 13976655,
-      "status": "Open",
-      "service_name": "Abandoned Vehicle",
-      "service_code": "SR-PD01",
-      "requested_datetime": "2021-03-03T14:06:41Z",
-      "updated_datetime": "2021-03-03T14:06:43Z",
-      "address": "824 N 16TH ST",
-      "lat": 39.9696,
-      "lon": -75.1634
-    },
-    {
-      "service_request_id": 13963689,
-      "status": "Closed",
-      "service_name": "Sanitation / Dumpster Violation",
-      "service_code": "SR-ST19",
-      "requested_datetime": "2021-03-02T08:52:40Z",
-      "updated_datetime": "2021-03-07T14:01:17Z",
-      "address": "1627 OGDEN ST",
-      "lat": 39.9701,
-      "lon": -75.1641
-    },
-    {
-      "service_request_id": 13968667,
-      "status": "Open",
-      "service_name": "Street Light Outage",
-      "service_code": "SR-ST04",
-      "requested_datetime": "2021-03-02T19:12:34Z",
-      "updated_datetime": "2021-03-02T19:15:50Z",
-      "address": "1712 WYLIE ST",
-      "lat": 39.9702,
-      "lon": -75.1652
-    },
-    {
-      "service_request_id": 13963592,
-      "status": "Open",
       "service_name": "LI Escalation",
-      "requested_datetime": "2021-03-02T08:33:05Z",
-      "updated_datetime": "2021-03-05T14:55:00Z",
-      "address": "1810 RIDGE AVE",
-      "lat": 39.9718,
-      "lon": -75.1661
+      "requested_datetime": "2021-04-19T10:42:58Z",
+      "address": "1213 W VENANGO ST",
+      "lat": 40.0073,
+      "lon": -75.1484
     },
     {
-      "service_request_id": 13980505,
-      "status": "Closed",
-      "service_name": "Right of Way Unit",
-      "requested_datetime": "2021-03-04T13:21:34Z",
-      "updated_datetime": "2021-03-09T14:17:17Z",
-      "address": "1810 RIDGE AVE",
-      "lat": 39.9718,
-      "lon": -75.1661
-    },
-    {
-      "service_request_id": 13972978,
-      "status": "Open",
-      "service_name": "Abandoned Vehicle",
-      "service_code": "SR-PD01",
-      "requested_datetime": "2021-03-03T07:24:35Z",
-      "updated_datetime": "2021-03-03T07:24:37Z",
-      "address": "824 N 16TH ST",
-      "lat": 39.9696,
-      "lon": -75.1634
-    },
-    {
-      "service_request_id": 13981236,
-      "status": "Open",
-      "service_name": "Abandoned Vehicle",
-      "service_code": "SR-PD01",
-      "requested_datetime": "2021-03-04T17:37:57Z",
-      "updated_datetime": "2021-03-04T17:37:59Z",
-      "address": "824 N 16TH ST",
-      "lat": 39.9696,
-      "lon": -75.1634
-    },
-    {
-      "service_request_id": 13983219,
-      "status": "Open",
-      "service_name": "Other (Streets)",
-      "service_code": "SR-ST16",
-      "requested_datetime": "2021-03-05T13:22:45Z",
-      "updated_datetime": "2021-03-12T07:48:48Z",
-      "address": "1705 RIDGE AVE",
-      "lat": 39.9706,
-      "lon": -75.1649
-    },
-    {
-      "service_request_id": 13960850,
-      "status": "Closed",
-      "service_name": "Sanitation / Dumpster Violation",
-      "service_code": "SR-ST19",
-      "requested_datetime": "2021-03-01T09:34:34Z",
-      "updated_datetime": "2021-03-07T14:01:18Z",
-      "address": "1627 OGDEN ST",
-      "lat": 39.9701,
-      "lon": -75.1641
-    },
-    {
-      "service_request_id": 13983051,
-      "status": "Open",
-      "service_name": "Manhole Cover",
-      "service_code": "SR-ST14",
-      "requested_datetime": "2021-03-05T12:53:37Z",
-      "updated_datetime": "2021-03-09T10:16:54Z",
-      "address": "W GIRARD AVE & RIDGE AVE",
-      "lat": 39.9724,
-      "lon": -75.1665
-    },
-    {
-      "service_request_id": 13963929,
-      "status": "Open",
-      "service_name": "Street Defect",
-      "service_code": "SR-ST01",
-      "requested_datetime": "2021-03-02T09:44:40Z",
-      "updated_datetime": "2021-03-03T11:44:16Z",
-      "address": "1719 RIDGE AVE",
-      "lat": 39.9713,
-      "lon": -75.1654
-    },
-    {
-      "service_request_id": 13969518,
-      "status": "Open",
-      "service_name": "Graffiti Removal",
-      "service_code": "SR-CL01",
-      "requested_datetime": "2021-03-02T21:15:17Z",
-      "updated_datetime": "2021-03-03T13:03:24Z",
-      "address": "1700 RIDGE AVE",
-      "lat": 39.9704,
-      "lon": -75.1651
-    },
-    {
-      "service_request_id": 13966931,
-      "status": "Open",
       "service_name": "Illegal Dumping",
-      "service_code": "SR-ST02",
-      "requested_datetime": "2021-03-02T15:29:52Z",
-      "updated_datetime": "2021-03-04T09:08:08Z",
-      "address": "1627 OGDEN ST",
-      "lat": 39.9701,
-      "lon": -75.1641
+      "requested_datetime": "2021-04-02T15:34:06Z",
+      "address": "3563 N MARVINE ST",
+      "lat": 40.007,
+      "lon": -75.147
     },
     {
-      "service_request_id": 13980512,
-      "status": "Open",
-      "service_name": "Abandoned Vehicle",
-      "service_code": "SR-PD01",
-      "requested_datetime": "2021-03-04T13:25:36Z",
-      "updated_datetime": "2021-03-04T13:25:39Z",
-      "address": "824 N 16TH ST",
-      "lat": 39.9696,
-      "lon": -75.1634
-    },
-    {
-      "service_request_id": 13963664,
-      "status": "Open",
       "service_name": "Illegal Dumping",
-      "service_code": "SR-ST02",
-      "requested_datetime": "2021-03-02T08:48:46Z",
-      "updated_datetime": "2021-03-05T09:15:21Z",
-      "address": "1627 OGDEN ST",
-      "lat": 39.9701,
-      "lon": -75.1641
+      "requested_datetime": "2021-03-29T15:30:55Z",
+      "address": "1124 W VENANGO ST",
+      "lat": 40.0071,
+      "lon": -75.1472
     },
     {
-      "service_request_id": 13962723,
-      "status": "Closed",
-      "service_name": "Street Defect",
-      "service_code": "SR-ST01",
-      "requested_datetime": "2021-03-01T15:57:01Z",
-      "updated_datetime": "2021-03-03T12:34:23Z",
-      "address": "1615 RIDGE AVE",
-      "lat": 39.9697,
-      "lon": -75.1638
+      "service_name": "Eclipse Help",
+      "requested_datetime": "2021-04-13T09:05:27Z",
+      "address": "3553 N MARVINE ST",
+      "lat": 40.0068,
+      "lon": -75.1471
+    }
+  ],
+  "request311.nn5": [
+    {
+      "light.nn5": 211.2138,
+      "heat.nn5": 551.6063,
+      "infestation.nn5": 562.4249,
+      "Detector.nn5": 100.149,
+      "Dangerous.nn5": 225.7119
+    }
+  ],
+  "nearby_parcel_df": [
+    {
+      "cartodb_id": 310029,
+      "opa_account_num": "432031800",
+      "Parcel_Id": "044N130061     ",
+      "total_area": 600.74,
+      "year_built": "0000",
+      "zoning": "RM1",
+      "category_code": "6",
+      "category": "Vacant Land",
+      "interior": "None Found",
+      "Parcel_OBJECTID": "594085",
+      "PARCEL": "0061",
+      "ADDR_SOURCE": "1214 W VENANGO ST ",
+      "x": "-8365486.83691811",
+      "y": "4866979.38567344",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 217.7761,
+      "heat.nn5": 521.7997,
+      "infestation.nn5": 567.0789,
+      "Detector.nn5": 101.9289,
+      "Dangerous.nn5": 219.7301
     },
     {
-      "service_request_id": 13981363,
-      "status": "Open",
-      "service_name": "Street Defect",
-      "service_code": "SR-ST01",
-      "requested_datetime": "2021-03-04T18:53:54Z",
-      "updated_datetime": "2021-03-10T14:32:13Z",
-      "address": "1723 RIDGE AVE",
-      "lat": 39.9713,
-      "lon": -75.1657
+      "cartodb_id": 310031,
+      "opa_account_num": "432032000",
+      "Parcel_Id": "044N130059",
+      "total_area": 600.74,
+      "year_built": "0000",
+      "zoning": "RM1",
+      "category_code": "6",
+      "category": "Vacant Land",
+      "interior": "None Found",
+      "Parcel_OBJECTID": "41802",
+      "PARCEL": "0059",
+      "ADDR_SOURCE": "1218 W VENANGO ST ",
+      "x": "-8365497.76705316",
+      "y": "4866981.31388189",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 220.1107,
+      "heat.nn5": 513.5951,
+      "infestation.nn5": 568.692,
+      "Detector.nn5": 105.3538,
+      "Dangerous.nn5": 215.6939
+    },
+    {
+      "cartodb_id": 310032,
+      "opa_account_num": "432032100",
+      "Parcel_Id": "044N130058",
+      "total_area": 610.12,
+      "year_built": "0000",
+      "zoning": "RM1",
+      "category_code": "6",
+      "category": "Vacant Land",
+      "interior": "None Found",
+      "Parcel_OBJECTID": "193736",
+      "PARCEL": "0058",
+      "ADDR_SOURCE": "1220 W VENANGO ST ",
+      "x": "-8365503.31514305",
+      "y": "4866982.1680804",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 221.5032,
+      "heat.nn5": 509.5154,
+      "infestation.nn5": 569.5786,
+      "Detector.nn5": 107.9022,
+      "Dangerous.nn5": 213.7428
+    },
+    {
+      "cartodb_id": 310033,
+      "opa_account_num": "432032210",
+      "Parcel_Id": "044N130057     ",
+      "total_area": 586.74,
+      "year_built": "1940",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "244296",
+      "PARCEL": "0057",
+      "ADDR_SOURCE": "1222 W VENANGO ST ",
+      "x": "-8365508.78874207",
+      "y": "4866983.18151887",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 222.8413,
+      "heat.nn5": 505.4513,
+      "infestation.nn5": 570.4606,
+      "Detector.nn5": 110.6346,
+      "Dangerous.nn5": 211.8879
+    },
+    {
+      "cartodb_id": 309971,
+      "opa_account_num": "432162400",
+      "Parcel_Id": "044N130217     ",
+      "total_area": 990.67,
+      "year_built": "1920",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "3",
+      "category": "Residential",
+      "interior": "Above Average",
+      "Parcel_OBJECTID": "509662",
+      "PARCEL": "0217",
+      "ADDR_SOURCE": "3544 OLD YORK RD ",
+      "x": "-8365461.47255278",
+      "y": "4866952.46749855",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 230.3656,
+      "heat.nn5": 549.93,
+      "infestation.nn5": 567.3176,
+      "Detector.nn5": 116.4542,
+      "Dangerous.nn5": 221.9096
+    },
+    {
+      "cartodb_id": 309972,
+      "opa_account_num": "432162500",
+      "Parcel_Id": "044N130106",
+      "total_area": 1059.52,
+      "year_built": "0000",
+      "zoning": "RM1",
+      "category_code": "6",
+      "category": "Vacant Land",
+      "interior": "None Found",
+      "Parcel_OBJECTID": "2691",
+      "PARCEL": "0106",
+      "ADDR_SOURCE": "3546 OLD YORK RD ",
+      "x": "-8365460.29040393",
+      "y": "4866958.88465943",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 225.2017,
+      "heat.nn5": 548.2145,
+      "infestation.nn5": 566.1006,
+      "Detector.nn5": 111.2422,
+      "Dangerous.nn5": 222.7038
+    },
+    {
+      "cartodb_id": 309973,
+      "opa_account_num": "432162600",
+      "Parcel_Id": "044N130220",
+      "total_area": 2258,
+      "year_built": "0000",
+      "zoning": "RM1",
+      "category_code": "6",
+      "category": "Vacant Land",
+      "interior": "None Found",
+      "Parcel_OBJECTID": "348036",
+      "PARCEL": "0220",
+      "ADDR_SOURCE": "3548 OLD YORK RD ",
+      "x": "-8365478.2379898",
+      "y": "4866963.27809337",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 226.6582,
+      "heat.nn5": 533.9423,
+      "infestation.nn5": 568.1123,
+      "Detector.nn5": 111.3846,
+      "Dangerous.nn5": 222.3109
+    },
+    {
+      "cartodb_id": 309974,
+      "opa_account_num": "432162810",
+      "Parcel_Id": "045N230058     ",
+      "total_area": 1386.87,
+      "year_built": "0000",
+      "zoning": "RM1",
+      "category_code": "6",
+      "interior_condition": "0",
+      "category": "Vacant Land",
+      "interior": "Not Applicable",
+      "Parcel_OBJECTID": "176308",
+      "PARCEL": "0058",
+      "ADDR_SOURCE": "3600 OLD YORK RD ",
+      "x": "-8365456.60483077",
+      "y": "4867006.19470283",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 190.8267,
+      "heat.nn5": 533.4668,
+      "infestation.nn5": 559.29,
+      "Detector.nn5": 82.6076,
+      "Dangerous.nn5": 222.867
+    },
+    {
+      "cartodb_id": 309975,
+      "opa_account_num": "432162900",
+      "Parcel_Id": "045N230051     ",
+      "total_area": 1376.41,
+      "year_built": "1920",
+      "zoning": "RM1",
+      "category_code": "2",
+      "interior_condition": "4",
+      "category": "Hotels and Apartments",
+      "interior": "Average",
+      "Parcel_OBJECTID": "24245",
+      "PARCEL": "0051",
+      "ADDR_SOURCE": "3602 OLD YORK RD ",
+      "x": "-8365455.61163784",
+      "y": "4867012.52589958",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 186.4982,
+      "heat.nn5": 532.0493,
+      "infestation.nn5": 558.5017,
+      "Detector.nn5": 80.2587,
+      "Dangerous.nn5": 221.6702
+    },
+    {
+      "cartodb_id": 309976,
+      "opa_account_num": "432163000",
+      "Parcel_Id": "045N230048     ",
+      "total_area": 1354.62,
+      "year_built": "1920",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "168240",
+      "PARCEL": "0048",
+      "ADDR_SOURCE": "3604 OLD YORK RD ",
+      "x": "-8365454.39678393",
+      "y": "4867018.8902076",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 182.2016,
+      "heat.nn5": 530.8302,
+      "infestation.nn5": 557.7283,
+      "Detector.nn5": 78.1753,
+      "Dangerous.nn5": 220.6
+    },
+    {
+      "cartodb_id": 310120,
+      "opa_account_num": "432043000",
+      "Parcel_Id": "045N230084     ",
+      "total_area": 1376,
+      "year_built": "0000",
+      "zoning": "RM1",
+      "category_code": "6",
+      "interior_condition": "0",
+      "category": "Vacant Land",
+      "interior": "Not Applicable",
+      "Parcel_OBJECTID": "464879",
+      "PARCEL": "0084",
+      "ADDR_SOURCE": "1213 W VENANGO ST ",
+      "x": "-8365475.54463966",
+      "y": "4867022.59950409",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 186.2927,
+      "heat.nn5": 514.483,
+      "infestation.nn5": 560.0931,
+      "Detector.nn5": 80.8517,
+      "Dangerous.nn5": 217.4264
+    },
+    {
+      "cartodb_id": 310030,
+      "opa_account_num": "432031900",
+      "Parcel_Id": "044N130060     ",
+      "total_area": 600.74,
+      "year_built": "1940",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "446570",
+      "PARCEL": "0060",
+      "ADDR_SOURCE": "1216 W VENANGO ST ",
+      "x": "-8365492.30522259",
+      "y": "4866980.30133729",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 218.9373,
+      "heat.nn5": 517.7012,
+      "infestation.nn5": 567.8767,
+      "Detector.nn5": 103.4137,
+      "Dangerous.nn5": 217.6792
+    },
+    {
+      "cartodb_id": 546133,
+      "opa_account_num": "885509980",
+      "Parcel_Id": "044N130225     ",
+      "total_area": 868,
+      "year_built": "0000",
+      "zoning": "CMX2",
+      "category_code": "6",
+      "category": "Vacant Land",
+      "interior": "None Found",
+      "Parcel_OBJECTID": "63642",
+      "PARCEL": "0225",
+      "ADDR_SOURCE": "3545 N CAMAC ST ",
+      "x": "-8365509.3896435",
+      "y": "4866970.82311427",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 231.5082,
+      "heat.nn5": 509.8016,
+      "infestation.nn5": 572.4702,
+      "Detector.nn5": 118.9308,
+      "Dangerous.nn5": 211.8467
+    },
+    {
+      "cartodb_id": 310300,
+      "opa_account_num": "432043100",
+      "Parcel_Id": "045N230038     ",
+      "total_area": 1259.51,
+      "year_built": "1940",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "438620",
+      "PARCEL": "0038",
+      "ADDR_SOURCE": "1215 W VENANGO ST ",
+      "x": "-8365482.03858467",
+      "y": "4867023.86191202",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 187.7134,
+      "heat.nn5": 509.4994,
+      "infestation.nn5": 560.9074,
+      "Detector.nn5": 82.5688,
+      "Dangerous.nn5": 215.5245
+    },
+    {
+      "cartodb_id": 310301,
+      "opa_account_num": "432043200",
+      "Parcel_Id": "045N230023     ",
+      "total_area": 1259.51,
+      "year_built": "1940",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "79046",
+      "PARCEL": "0023",
+      "ADDR_SOURCE": "1217 W VENANGO ST ",
+      "x": "-8365488.10430453",
+      "y": "4867024.90765969",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 189.2167,
+      "heat.nn5": 504.9211,
+      "infestation.nn5": 561.723,
+      "Detector.nn5": 84.6441,
+      "Dangerous.nn5": 212.9883
+    },
+    {
+      "cartodb_id": 312486,
+      "opa_account_num": "432030700",
+      "Parcel_Id": "044N120135     ",
+      "total_area": 1318.92,
+      "year_built": "1940",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "45277",
+      "PARCEL": "0135",
+      "ADDR_SOURCE": "1140 W VENANGO ST ",
+      "x": "-8365393.52934174",
+      "y": "4866954.45185051",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 193.0293,
+      "heat.nn5": 598.7166,
+      "infestation.nn5": 560.1122,
+      "Detector.nn5": 113.1844,
+      "Dangerous.nn5": 229.6428
+    },
+    {
+      "cartodb_id": 312487,
+      "opa_account_num": "432030800",
+      "Parcel_Id": "044N120110     ",
+      "total_area": 1318.92,
+      "year_built": "1940",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "492518",
+      "PARCEL": "0110",
+      "ADDR_SOURCE": "1142 W VENANGO ST ",
+      "x": "-8365399.50383978",
+      "y": "4866955.1832294",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 196.2845,
+      "heat.nn5": 593.9411,
+      "infestation.nn5": 560.3707,
+      "Detector.nn5": 112.913,
+      "Dangerous.nn5": 228.842
+    },
+    {
+      "cartodb_id": 312488,
+      "opa_account_num": "432030900",
+      "Parcel_Id": "044N120081     ",
+      "total_area": 1318.92,
+      "year_built": "1940",
+      "zoning": "RM1",
+      "category_code": "2",
+      "interior_condition": "4",
+      "category": "Hotels and Apartments",
+      "interior": "Average",
+      "Parcel_OBJECTID": "329956",
+      "PARCEL": "0081",
+      "ADDR_SOURCE": "1144 W VENANGO ST ",
+      "x": "-8365405.53023367",
+      "y": "4866956.17222921",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 199.5156,
+      "heat.nn5": 589.0521,
+      "infestation.nn5": 560.6402,
+      "Detector.nn5": 112.8609,
+      "Dangerous.nn5": 228.1128
+    },
+    {
+      "cartodb_id": 312489,
+      "opa_account_num": "432031001",
+      "Parcel_Id": "044N120053     ",
+      "total_area": 2713.53,
+      "year_built": "1940",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "182247",
+      "PARCEL": "0053",
+      "ADDR_SOURCE": "1146 W VENANGO ST ",
+      "x": "-8365415.15927216",
+      "y": "4866957.65110432",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 205.0148,
+      "heat.nn5": 581.3287,
+      "infestation.nn5": 561.1801,
+      "Detector.nn5": 111.881,
+      "Dangerous.nn5": 227.0194
+    },
+    {
+      "cartodb_id": 312490,
+      "opa_account_num": "432031110",
+      "Parcel_Id": "044N130063",
+      "total_area": 1351.2,
+      "year_built": "0000",
+      "zoning": "RM1",
+      "category_code": "6",
+      "category": "Vacant Land",
+      "interior": "None Found",
+      "Parcel_OBJECTID": "317660",
+      "PARCEL": "0063",
+      "ADDR_SOURCE": "1200 W VENANGO ST ",
+      "x": "-8365448.1004527",
+      "y": "4866972.64478846",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 211.2138,
+      "heat.nn5": 551.6063,
+      "infestation.nn5": 562.4249,
+      "Detector.nn5": 100.149,
+      "Dangerous.nn5": 225.7119
+    },
+    {
+      "cartodb_id": 312491,
+      "opa_account_num": "432031310",
+      "Parcel_Id": "044N130127",
+      "total_area": 600.74,
+      "year_built": "0000",
+      "zoning": "RM1",
+      "category_code": "6",
+      "category": "Vacant Land",
+      "interior": "None Found",
+      "Parcel_OBJECTID": "561744",
+      "PARCEL": "0127",
+      "ADDR_SOURCE": "1204 W VENANGO ST ",
+      "x": "-8365459.38687705",
+      "y": "4866974.62946631",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 213.3158,
+      "heat.nn5": 542.7944,
+      "infestation.nn5": 563.601,
+      "Detector.nn5": 99.6822,
+      "Dangerous.nn5": 225.1013
+    },
+    {
+      "cartodb_id": 312492,
+      "opa_account_num": "432031400",
+      "Parcel_Id": "044N130079     ",
+      "total_area": 600.74,
+      "year_built": "1920",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "77840",
+      "PARCEL": "0079",
+      "ADDR_SOURCE": "1206 W VENANGO ST ",
+      "x": "-8365464.90150747",
+      "y": "4866975.56302528",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 214.0552,
+      "heat.nn5": 538.5375,
+      "infestation.nn5": 564.2344,
+      "Detector.nn5": 99.7161,
+      "Dangerous.nn5": 224.8673
+    },
+    {
+      "cartodb_id": 322479,
+      "opa_account_num": "432163300",
+      "Parcel_Id": "045N230031     ",
+      "total_area": 1354.62,
+      "year_built": "1920",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "293132",
+      "PARCEL": "0031",
+      "ADDR_SOURCE": "3610 OLD YORK RD ",
+      "x": "-8365453.22204906",
+      "y": "4867037.33636532",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 171.117,
+      "heat.nn5": 525.8685,
+      "infestation.nn5": 555.993,
+      "Detector.nn5": 73.7666,
+      "Dangerous.nn5": 216.5459
+    },
+    {
+      "cartodb_id": 311252,
+      "opa_account_num": "432157300",
+      "Parcel_Id": "044N120068     ",
+      "total_area": 1683.83,
+      "year_built": "1920",
+      "zoning": "RM1",
+      "category_code": "2",
+      "interior_condition": "4",
+      "category": "Hotels and Apartments",
+      "interior": "Average",
+      "Parcel_OBJECTID": "484175",
+      "PARCEL": "0068",
+      "ADDR_SOURCE": "3549 OLD YORK RD ",
+      "x": "-8365405.90095141",
+      "y": "4866926.74503454",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 221.6335,
+      "heat.nn5": 600.4307,
+      "infestation.nn5": 565.6192,
+      "Detector.nn5": 128.296,
+      "Dangerous.nn5": 224.0479
+    },
+    {
+      "cartodb_id": 311253,
+      "opa_account_num": "432157400",
+      "Parcel_Id": "044N120288     ",
+      "total_area": 2191.4,
+      "year_built": "1920",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "57607",
+      "PARCEL": "0288",
+      "ADDR_SOURCE": "3551 OLD YORK RD ",
+      "x": "-8365404.74115748",
+      "y": "4866933.64139386",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 215.645,
+      "heat.nn5": 598.4784,
+      "infestation.nn5": 564.26,
+      "Detector.nn5": 126.0104,
+      "Dangerous.nn5": 225.6708
+    },
+    {
+      "cartodb_id": 312485,
+      "opa_account_num": "432030600",
+      "Parcel_Id": "044N120132     ",
+      "total_area": 1305,
+      "year_built": "1940",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "574172",
+      "PARCEL": "0132",
+      "ADDR_SOURCE": "1138 W VENANGO ST ",
+      "x": "-8365387.68715457",
+      "y": "4866953.27375701",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 190.3246,
+      "heat.nn5": 603.5837,
+      "infestation.nn5": 559.9718,
+      "Detector.nn5": 114.1276,
+      "Dangerous.nn5": 230.3939
+    },
+    {
+      "cartodb_id": 312671,
+      "opa_account_num": "432031500",
+      "Parcel_Id": "044N130078     ",
+      "total_area": 600.74,
+      "year_built": "1940",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "77841",
+      "PARCEL": "0078",
+      "ADDR_SOURCE": "1208 W VENANGO ST ",
+      "x": "-8365470.41700219",
+      "y": "4866976.5585883",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 214.8383,
+      "heat.nn5": 534.2803,
+      "infestation.nn5": 564.8937,
+      "Detector.nn5": 99.8824,
+      "Dangerous.nn5": 224.6926
+    },
+    {
+      "cartodb_id": 312672,
+      "opa_account_num": "432031600",
+      "Parcel_Id": "044N130077     ",
+      "total_area": 600.74,
+      "year_built": "1940",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "226976",
+      "PARCEL": "0077",
+      "ADDR_SOURCE": "1210 W VENANGO ST ",
+      "x": "-8365475.92237067",
+      "y": "4866977.49763756",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 215.7456,
+      "heat.nn5": 530.0751,
+      "infestation.nn5": 565.594,
+      "Detector.nn5": 100.2887,
+      "Dangerous.nn5": 224.001
+    },
+    {
+      "cartodb_id": 312673,
+      "opa_account_num": "432031700",
+      "Parcel_Id": "044N130076     ",
+      "total_area": 600.74,
+      "year_built": "1940",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "530390",
+      "PARCEL": "0076",
+      "ADDR_SOURCE": "1212 W VENANGO ST ",
+      "x": "-8365481.38608882",
+      "y": "4866978.43529216",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 216.726,
+      "heat.nn5": 525.9234,
+      "infestation.nn5": 566.3218,
+      "Detector.nn5": 100.9422,
+      "Dangerous.nn5": 221.8341
+    },
+    {
+      "cartodb_id": 322477,
+      "opa_account_num": "432163100",
+      "Parcel_Id": "045N230052     ",
+      "total_area": 1361.59,
+      "year_built": "1920",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "125977",
+      "PARCEL": "0052",
+      "ADDR_SOURCE": "3606 OLD YORK RD ",
+      "x": "-8365453.48600703",
+      "y": "4867024.85712652",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 178.3452,
+      "heat.nn5": 529.5672,
+      "infestation.nn5": 557.0701,
+      "Detector.nn5": 76.4788,
+      "Dangerous.nn5": 219.6565
+    },
+    {
+      "cartodb_id": 322478,
+      "opa_account_num": "432163200",
+      "Parcel_Id": "045N230053     ",
+      "total_area": 1354.62,
+      "year_built": "1920",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "595023",
+      "PARCEL": "0053",
+      "ADDR_SOURCE": "3608 OLD YORK RD ",
+      "x": "-8365452.42502728",
+      "y": "4867030.70455776",
+      "vio_code": [
+        "PM-302.4/3"
+      ],
+      "vio_title": [
+        "DRAINAGE-AFFECTING ADJ/PROP"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 174.6294,
+      "heat.nn5": 528.4945,
+      "infestation.nn5": 556.4432,
+      "Detector.nn5": 75.0044,
+      "Dangerous.nn5": 218.8433
+    },
+    {
+      "cartodb_id": 312945,
+      "opa_account_num": "432042600",
+      "Parcel_Id": "045N220020     ",
+      "total_area": 1305,
+      "year_built": "1940",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "504098",
+      "PARCEL": "0020",
+      "ADDR_SOURCE": "1149 W VENANGO ST ",
+      "x": "-8365398.68451708",
+      "y": "4867011.02409823",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 159.0657,
+      "heat.nn5": 574.9827,
+      "infestation.nn5": 553.8864,
+      "Detector.nn5": 86.9291,
+      "Dangerous.nn5": 223.794
+    },
+    {
+      "cartodb_id": 312946,
+      "opa_account_num": "432042700",
+      "Parcel_Id": "045N220022     ",
+      "total_area": 1305,
+      "year_built": "1940",
+      "zoning": "RM1",
+      "category_code": "1",
+      "interior_condition": "4",
+      "category": "Residential",
+      "interior": "Average",
+      "Parcel_OBJECTID": "253426",
+      "PARCEL": "0022",
+      "ADDR_SOURCE": "1151 W VENANGO ST ",
+      "x": "-8365404.68569099",
+      "y": "4867012.09086105",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 161.3274,
+      "heat.nn5": 570.0443,
+      "infestation.nn5": 554.0909,
+      "Detector.nn5": 85.2009,
+      "Dangerous.nn5": 223.4615
+    },
+    {
+      "cartodb_id": 312947,
+      "opa_account_num": "432042800",
+      "Parcel_Id": "045N220015     ",
+      "total_area": 1311.09,
+      "year_built": "1940",
+      "zoning": "RM1",
+      "category_code": "2",
+      "interior_condition": "4",
+      "category": "Hotels and Apartments",
+      "interior": "Average",
+      "Parcel_OBJECTID": "35966",
+      "PARCEL": "0015",
+      "ADDR_SOURCE": "1153 W VENANGO ST ",
+      "x": "-8365410.94414575",
+      "y": "4867012.98120026",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 163.975,
+      "heat.nn5": 564.9929,
+      "infestation.nn5": 554.3741,
+      "Detector.nn5": 83.2389,
+      "Dangerous.nn5": 223.3125
+    },
+    {
+      "cartodb_id": 323253,
+      "opa_account_num": "432166200",
+      "Parcel_Id": "044N130226     ",
+      "total_area": 868,
+      "year_built": "0000",
+      "zoning": "CMX2",
+      "category_code": "6",
+      "interior_condition": "0",
+      "category": "Vacant Land",
+      "interior": "Not Applicable",
+      "Parcel_OBJECTID": "6835",
+      "PARCEL": "0226",
+      "ADDR_SOURCE": "3543 N CAMAC ST ",
+      "x": "-8365510.61802234",
+      "y": "4866964.3661381",
+      "vio_code": [
+        "NO CODE VIOLATION"
+      ],
+      "vio_title": [
+        "NO CODE VIOLATION"
+      ],
+      "population": 2842,
+      "whitepop": 68,
+      "blackpop": 2322,
+      "medianIncome": 17219,
+      "light.nn5": 236.4919,
+      "heat.nn5": 511.5365,
+      "infestation.nn5": 573.7643,
+      "Detector.nn5": 124.1003,
+      "Dangerous.nn5": 211.7438
     }
   ]
 }
