@@ -1,24 +1,24 @@
 # plumber.R
 
-#* Get the opa_account_num & parcel_id for an input address
+#* Get the information for an input address as well as its nearby parcels
 #* @param addr Input address
 #* @get /Parcel_Information
 function(addr){
+  #addr = "1200%20W%20VENANGO%20ST"
   #addr = "7701%20%20LINDBERGH%20BLVD"
   #addr = "4054 1/2%20LANCASTER%20AV"
   
   library(tidyverse)
   library(sf)
   library(geojsonsf)
-  library(QuantPsyc)
-  library(RSocrata)
-  library(caret)
-  library(spatstat)
-  library(spdep)
+  #library(QuantPsyc)
+  #library(RSocrata)
+  #library(caret)
+  #library(spatstat)
+  #library(spdep)
   library(FNN)
-  library(grid)
-  library(gridExtra)
-  library(kableExtra)
+  #library(grid)
+  #library(gridExtra)
   library(tidycensus)
 
   library(httr)
@@ -96,7 +96,7 @@ function(addr){
       ADDR_SOURCE <- dor_data$features$attributes$ADDR_SOURCE
       Centroid_x <- dor_data$features$centroid$x
       Centroid_y <- dor_data$features$centroid$y
-    }else{
+    }else if(length(dor_data$features$attributes$OBJECTID)>1){
       Parcel_OBJECTID <- dor_data$features$attributes$OBJECTID[1]
       PARCEL <- dor_data$features$attributes$PARCEL[1]
       #Shape__Area <- dor_data$features$attributes$Shape__Area[1]
@@ -104,6 +104,14 @@ function(addr){
       ADDR_SOURCE <- dor_data$features$attributes$ADDR_SOURCE[1]
       Centroid_x <- dor_data$features$centroid$x[1]
       Centroid_y <- dor_data$features$centroid$y[1]
+    }else{
+      Parcel_OBJECTID <- "None Found"
+      PARCEL <- "None Found"
+      #Shape__Area <- "None Found"
+      #Shape__Length <- "None Found"
+      ADDR_SOURCE <- "None Found"
+      Centroid_x <- "None Found"
+      Centroid_y <- "None Found"
     }
   }else{
     Parcel_OBJECTID <- "Null"
@@ -117,11 +125,14 @@ function(addr){
   
   
   if (is.null(Centroid_x) != TRUE ){
-    ParcelGeom = data.frame(x = c(Centroid_x),
-                            y = c(Centroid_y),
+    ParcelGeom = data.frame(x0 = c(Centroid_x),
+                            y0 = c(Centroid_y),
                             Parcel_OBJECTID = c(Parcel_OBJECTID),
                             Parcel_Id = c(Parcel_Id))%>%
-      st_as_sf(coords = c("x","y"), crs = 3857)
+      st_as_sf(coords = c("x0","y0"), crs = 3857)
+    
+    x0 = Centroid_x
+    y0 = Centroid_y
     
     DOR_4326 <- ParcelGeom %>% 
       st_transform(crs = 4326)
@@ -166,8 +177,8 @@ function(addr){
       st_transform(crs = 4326) %>%
       cbind(st_coordinates(.))
   }else{
-    x = "Null"
-    y = "Null"
+    x0 = "Null"
+    y0 = "Null"
   }
   
   #Request properties data----------------------------------
@@ -330,40 +341,40 @@ function(addr){
   }
   
   #Request census data---------------------------------
-  #census_api_key("bdc91afe8f1e229bfd29314d696345b8365818b6", overwrite = TRUE)
+  census_api_key("bdc91afe8f1e229bfd29314d696345b8365818b6", overwrite = TRUE)
   
-  #censusdat<- 
-  #  get_acs(geography = "tract",
-  #          variables = c(pop="B01003_001",
-  #                        whitepop="B01001A_001",
-  #                        medinc="B06011_001",
-  #                        blackpop = "B02001_003"),
-  #          year=2019,
-  #          state = "PA", 
-  #          geometry = TRUE, 
-  #          county="Philadelphia",
-  #          output = "wide")
+  censusdat<- 
+    get_acs(geography = "tract",
+            variables = c(pop="B01003_001",
+                          whitepop="B01001A_001",
+                          medinc="B06011_001",
+                          blackpop = "B02001_003"),
+            year=2019,
+            state = "PA", 
+            geometry = TRUE, 
+            county="Philadelphia",
+            output = "wide")
   
-  #censusdat.sf <- censusdat %>%
-  #  st_transform( crs = 3857)
+  censusdat.sf <- censusdat %>%
+    st_transform( crs = 3857)
   
-  #if(is.null(Centroid_x) != TRUE){
-  #  census <- 
-  #    st_join(ParcelGeom, censusdat.sf,
-  #            join=st_intersects,
-  #            left = TRUE,
-  #            largest = FALSE)
-    
-  #  population <- census$popE
-  #  whitepop <- census$whitepopE
-  #  blackpop <- census$blackpopE
-  #  medianIncome <- census$medincE
-  #}else{
-  #  population <- "unknown"
-  #  whitepop <- "unknown"
-  #  blackpop <- "unknown"
-  #  medianIncome <- "unknown"
-  #}
+  if(is.null(Centroid_x) != TRUE){
+    census <- 
+      st_join(ParcelGeom, censusdat.sf,
+              join=st_intersects,
+              left = TRUE,
+              largest = FALSE)
+  
+    population <- census$popE
+    whitepop <- census$whitepopE
+    blackpop <- census$blackpopE
+    medianIncome <- census$medincE
+  }else{
+    population <- "unknown"
+    whitepop <- "unknown"
+    blackpop <- "unknown"
+    medianIncome <- "unknown"
+  }
   
   
   #Nearby Parcel---------------------------------------
@@ -393,7 +404,8 @@ function(addr){
                                   interior_condition == 4 ~ "Average",
                                   interior_condition == 5 ~ "Below Average",
                                   interior_condition == 6 ~ "Vacant",
-                                  interior_condition == 7 ~ "Sealed/Structurally Compromised")) %>%
+                                  interior_condition == 7 ~ "Sealed/Structurally Compromised",
+                                  is.na(interior_condition) == TRUE ~ "None Found")) %>%
       rename(Parcel_Id = registry_number, opa_account_num = parcel_number) 
     
     #Request nearby parcels' geometry-----------------------
@@ -408,27 +420,36 @@ function(addr){
         if(length(dor_data$features$attributes$OBJECTID)==1){
         near_prop[i,"Parcel_OBJECTID"] <- dor_data$features$attributes$OBJECTID
         near_prop[i,"PARCEL"] <- dor_data$features$attributes$PARCEL
-        near_prop[i,"Shape__Area"] <- dor_data$features$attributes$Shape__Area
-        near_prop[i,"Shape__Length"] <- dor_data$features$attributes$Shape__Length
+        #near_prop[i,"Shape__Area"] <- dor_data$features$attributes$Shape__Area
+        #near_prop[i,"Shape__Length"] <- dor_data$features$attributes$Shape__Length
         near_prop[i,"ADDR_SOURCE"] <- dor_data$features$attributes$ADDR_SOURCE
         near_prop[i,"x"] <- dor_data$features$centroid$x
         near_prop[i,"y"] <- dor_data$features$centroid$y
         #near_prop[i,"geometry"] <- dor_data$features$geometry
-        }else{
+        }else if(length(dor_data$features$attributes$OBJECTID)>1){
           near_prop[i,"Parcel_OBJECTID"] <- dor_data$features$attributes$OBJECTID[1]
           near_prop[i,"PARCEL"] <- dor_data$features$attributes$PARCEL[1]
-          near_prop[i,"Shape__Area"] <- dor_data$features$attributes$Shape__Area[1]
-          near_prop[i,"Shape__Length"] <- dor_data$features$attributes$Shape__Length[1]
+          #near_prop[i,"Shape__Area"] <- dor_data$features$attributes$Shape__Area[1]
+          #near_prop[i,"Shape__Length"] <- dor_data$features$attributes$Shape__Length[1]
           near_prop[i,"ADDR_SOURCE"] <- dor_data$features$attributes$ADDR_SOURCE[1]
           near_prop[i,"x"] <- dor_data$features$centroid$x[1]
           near_prop[i,"y"] <- dor_data$features$centroid$y[1]
+          #near_prop[i,"geometry"] <- dor_data$features$geometry[1]
+        }else{
+          near_prop[i,"Parcel_OBJECTID"] <- "None Found"
+          near_prop[i,"PARCEL"] <- "None Found"
+          #near_prop[i,"Shape__Area"] <- "None Found"
+          #near_prop[i,"Shape__Length"] <- "None Found"
+          near_prop[i,"ADDR_SOURCE"] <- "None Found"
+          near_prop[i,"x"] <- "None Found"
+          near_prop[i,"y"] <- "None Found"
           #near_prop[i,"geometry"] <- dor_data$features$geometry[1]
         }
       }else{
         near_prop[i,"Parcel_OBJECTID"] <- "N/A"
         near_prop[i,"PARCEL"] <- "N/A"
-        near_prop[i,"Shape__Area"] <- "N/A"
-        near_prop[i,"Shape__Length"] <- "N/A"
+        #near_prop[i,"Shape__Area"] <- "N/A"
+        #near_prop[i,"Shape__Length"] <- "N/A"
         near_prop[i,"ADDR_SOURCE"] <- "N/A"
         near_prop[i,"x"] <- "N/A"
         near_prop[i,"y"] <- "N/A"
@@ -436,7 +457,8 @@ function(addr){
       
     }
     
-    near_prop.sf <- near_prop %>%
+    near_prop <- near_prop[near_prop$y != "None Found" & near_prop$y != "N/A",]
+    near_prop.sf <- near_prop%>%
       drop_na(x)%>%
       st_as_sf(coords = c("x","y"), crs = 3857)
     
@@ -472,6 +494,13 @@ function(addr){
       }
     }
     
+    #Nearby census data---------------------------------
+    near_prop <- near_prop %>%
+      mutate(population = population,
+             whitepop =  whitepop,
+             blackpop =  blackpop,
+             medianIncome =  medianIncome)
+    
     #Nearby 311 request---------------------------------
       near_prop <- near_prop %>%
       mutate(light.nn5 =  nn_function(st_coordinates(near_prop.sf),st_coordinates(light.sf), 5),
@@ -490,8 +519,8 @@ function(addr){
     data.frame(Address = c(addr),               
              Opa_account_num = c(opa_account_num), 
              Parcel_Id= c(Parcel_Id),
-             Parcel_centroid_lat = c(x),
-             Parcel_centroid_lng = c(y)
+             Parcel_centroid_lat = c(x0),
+             Parcel_centroid_lng = c(y0)
              #Parcel_shape__Area = c(Shape__Area),
              #Parcel_Shape__Length = c(Shape__Length)
   )
@@ -507,20 +536,20 @@ function(addr){
     data.frame(vio_code = c(vio_code),
                vio_title = c(vio_title))
   
-  #census_df <-
-  #  data.frame(census_tract = c(census_tract),
-  #             census_block = c(census_block),
-  #             population = c(population),
-  #             white_population = c(whitepop),
-  #             black_population = c(blackpop),
-  #             median_income = c(medianIncome)
-  #             )
+  census_df <-
+    data.frame(census_tract = c(census_tract),
+               census_block = c(census_block),
+               population = c(population),
+               white_population = c(whitepop),
+               black_population = c(blackpop),
+               median_income = c(medianIncome)
+               )
   
   
   res <- list(#status = "SUCCESS", code = "200", 
               parcel_df = parcel_df, properties_df= properties_df,
               violation_df = violation_df,
-              #census_df= census_df, 
+              census_df= census_df, 
               request311_within100m = Request311,
               request311.nn5= request311,
               nearby_parcel_df = near_prop
