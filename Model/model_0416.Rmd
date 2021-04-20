@@ -397,6 +397,10 @@ fire.sf_152 <- fire.sf_18[!is.na(fire.sf_15$Year),]
 ```
 
 ```{r}
+parcel.sf2$lagfire.nn5 <-nn_function(st_coordinates(parcel.sf2),st_coordinates(fire.sf),5)
+```
+
+```{r}
 # the distance from the nearest 5 fires to the center of the grid for each year(2015-2020)
 parcel.sf2$lagfire20.nn5 <-nn_function(st_coordinates(parcel.sf2),st_coordinates(fire.sf_202),5) 
 parcel.sf2$lagfire19.nn5 <-nn_function(st_coordinates(parcel.sf2),st_coordinates(fire.sf_192),5) 
@@ -1007,7 +1011,7 @@ library(pscl)
 model_data <- parcel.sf2 
 
 #colSums(is.na(parcel.sf2))
-model_data <- subset(model_data, select = c(lagfire20.nn5, lagfire19.nn5, lagfire18.nn5,
+model_data <- subset(model_data, select = c(lagfire.nn5,lagfire20.nn5, lagfire19.nn5, lagfire18.nn5,
                                              lagfire17.nn5, lagfire16.nn5, lagfire15.nn5,
                                              category, interior.x,vio_unsafe, vio_equip,
                                              request19.nn5, light.nn5, heat.nn5, 
@@ -1082,7 +1086,9 @@ Test  <- model_data_new2[-trainIndex,]
 #logistic regression
 log_reg <- glm(fire ~ ., data=Train %>% 
                  dplyr::select(-category, -interior.x, -vio_unsafe,
-                               -vio_equip,-zoning,-isfire,-census_tract),
+                               -vio_equip,-zoning,-isfire,-census_tract,
+                               -lagfire20.nn5, -lagfire19.nn5, -lagfire18.nn5,
+                                             -lagfire17.nn5, -lagfire16.nn5, -lagfire15.nn5),
                   family="binomial" (link="logit"))
 
 summary(log_reg)
