@@ -45,6 +45,7 @@ function(addr){
   }else{
     opa_account_num <- "NONE FOUND"
   }
+  opa_output <- opa_account_num
   
   #Parcel_Id---------------------------------------
   if (length(tidy_res) != 4){
@@ -119,8 +120,8 @@ function(addr){
   }else{
     Parcel_OBJECTID <- "Null"
     PARCEL <- "Null"
-    Shape__Area <- "Null"
-    Shape__Length <- "Null"
+    #Shape__Area <- "Null"
+    #Shape__Length <- "Null"
     ADDR_SOURCE <- "Null"
     Centroid_x <- "Null"
     Centroid_y <- "Null"
@@ -194,8 +195,20 @@ function(addr){
   tidy_res_prop <- httr::content(response_prop, simplifyVector=TRUE)
   
   if (response_prop$status_code != 400){
-    #total_area <-  tidy_res_prop$rows$total_area
-    #total_livable_area <- tidy_res_prop$rows$total_livable_area
+    exterior_condition <-  tidy_res_prop$rows$exterior_condition
+    fireplaces <-  tidy_res_prop$rows$fireplaces
+    frontage	 <-  tidy_res_prop$rows$frontage	
+    fuel <-  tidy_res_prop$rows$fuel
+    number_stories <- tidy_res_prop$rows$number_stories
+    other_building <- tidy_res_prop$rows$other_building
+    quality_grade <- tidy_res_prop$rows$quality_grade
+    number_of_bathrooms <- tidy_res_prop$rows$number_of_bathrooms
+    number_of_bedrooms <- tidy_res_prop$rows$number_of_bedrooms
+    number_of_rooms <- tidy_res_prop$rows$number_of_rooms
+    year_built<- tidy_res_prop$rows$year_built
+    
+    total_livable_area <- tidy_res_prop$rows$total_livable_area
+    total_area <-  tidy_res_prop$rows$total_area
     zoning <- tidy_res_prop$rows$zoning
     category_code <- tidy_res_prop$rows$category_code
     category <- case_when(category_code == 1 ~ "Residential",
@@ -213,6 +226,18 @@ function(addr){
                           interior_condition == 6 ~ "Vacant",
                           interior_condition == 7 ~ "Sealed/Structurally Compromised")
   }else{
+    exterior_condition <-  "NO RESPONSE"
+    fireplaces <-  "NO RESPONSE"
+    frontage	 <-  "NO RESPONSE"
+    fuel <-  "NO RESPONSE"
+    number_stories <- "NO RESPONSE"
+    other_building <- "NO RESPONSE"
+    quality_grade <- "NO RESPONSE"
+    number_of_bathrooms <- "NO RESPONSE"
+    number_of_bedrooms <- "NO RESPONSE"
+    number_of_rooms <- "NO RESPONSE"
+    year_built<- "NO RESPONSE"
+    
     total_area <- "NO RESPONSE"
     total_livable_area <- "NO RESPONSE"
     zoning <- "NO RESPONSE"
@@ -511,7 +536,7 @@ function(addr){
   #Output-----------------------------------------------
   parcel_df <- 
     data.frame(Address = c(addr),               
-             Opa_account_num = c(opa_account_num), 
+             Opa_account_num = c(opa_output), 
              Parcel_Id= c(Parcel_Id),
              Parcel_centroid_lat = c(x0),
              Parcel_centroid_lng = c(y0)
@@ -520,11 +545,22 @@ function(addr){
   )
   
   properties_df <-
-    data.frame(#total_area = c(total_area),
-               #total_livable_area = c(total_livable_area),
+    data.frame(total_area = c(total_area),
+               total_livable_area = c(total_livable_area),
                zoning = c(zoning),
                category = c(category),
-               interior = c(interior))
+               interior = c(interior),
+               exterior_condition = c(exterior_condition),
+               fireplaces =  c(fireplaces),
+               frontage	 =  c(frontage),
+               fuel =  c(fuel),
+               number_stories = c(number_stories),
+               other_building = c(other_building),
+               quality_grade = c(quality_grade),
+               number_of_bathrooms = c(number_of_bathrooms),
+               number_of_bedrooms = c(number_of_bedrooms),
+               number_of_rooms = c(number_of_rooms),
+               year_built = c(year_built))
   
   violation_df <-
     data.frame(vio_code = c(vio_code),
