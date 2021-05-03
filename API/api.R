@@ -7,22 +7,14 @@ function(addr){
   #addr = "1200%20W%20VENANGO%20ST"
   #addr = "7701%20%20LINDBERGH%20BLVD"
   #addr = "4054 1/2%20LANCASTER%20AV"
+  #addr = "RandomInput"
   
   library(tidyverse)
   library(sf)
   library(geojsonsf)
-  #library(QuantPsyc)
-  #library(RSocrata)
-  #library(caret)
-  #library(spatstat)
-  #library(spdep)
   library(FNN)
-  #library(grid)
-  #library(gridExtra)
   library(tidycensus)
-
   library(httr)
-  library(dplyr)
   library(stringr)
   
   # Request opa -------------------------------------------------
@@ -86,42 +78,47 @@ function(addr){
   
   #Request parcel geometry------------------------------------------ 
   if(Parcel_Id != "0LENGTH" && Parcel_Id != "NONE FOUND" &&Parcel_Id != "PARCEL_ID IS NULL"){
-    base <- "https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/DOR_Parcel/FeatureServer/0/query?outFields=*&where=BASEREG%3D%27"
+    base <-  "https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/DOR_Parcel/FeatureServer/0/query?where=BASEREG%3D%27"
+    ##base <- "https://services.arcgis.com/fLeGjb7u4uXqeF9q/arcgis/rest/services/DOR_Parcel/FeatureServer/0/query?outFields=*&where=BASEREG%3D%27"
     BASEREG <- Parcel_Id
-    end <- "%27&returnCentroid=true&f=pjson"
+    ##end <- "%27&returnCentroid=true&f=pjson"
+    end <- "%27&objectIds=&time=&geometry=&geometryType=esriGeometryPolygon&inSR=&spatialRel=esriSpatialRelIntersects&resultType=none&distance=0.0&units=esriSRUnit_Meter&returnGeodetic=false&outFields=*&returnGeometry=true&returnCentroid=true&featureEncoding=esriDefault&multipatchOption=xyFootprint&maxAllowableOffset=&geometryPrecision=&outSR=&datumTransformation=&applyVCSProjection=false&returnIdsOnly=false&returnUniqueIdsOnly=false&returnCountOnly=false&returnExtentOnly=false&returnQueryGeometry=false&returnDistinctValues=false&cacheHint=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&having=&resultOffset=&resultRecordCount=&returnZ=false&returnM=false&returnExceededLimitFeatures=false&quantizationParameters=&sqlFormat=none&f=pgeojson&token="
     dor_url <- paste(base, BASEREG, end, sep="")
-    get_dor <- httr::GET(dor_url)
-    dor_data <- httr::content(get_dor, simplifyVector=TRUE, as = "parsed", type = "application/json")
-    if(length(dor_data$features$attributes$OBJECTID)==1){
-      Parcel_OBJECTID <- dor_data$features$attributes$OBJECTID
-      PARCEL <- dor_data$features$attributes$PARCEL
-      #Shape__Area <- dor_data$features$attributes$Shape__Area
-      #Shape__Length <- dor_data$features$attributes$Shape__Length
-      ADDR_SOURCE <- dor_data$features$attributes$ADDR_SOURCE
-      Centroid_x <- dor_data$features$centroid$x
-      Centroid_y <- dor_data$features$centroid$y
-    }else if(length(dor_data$features$attributes$OBJECTID)>1){
-      Parcel_OBJECTID <- dor_data$features$attributes$OBJECTID[1]
-      PARCEL <- dor_data$features$attributes$PARCEL[1]
-      #Shape__Area <- dor_data$features$attributes$Shape__Area[1]
-      #Shape__Length <- dor_data$features$attributes$Shape__Length[1]
-      ADDR_SOURCE <- dor_data$features$attributes$ADDR_SOURCE[1]
-      Centroid_x <- dor_data$features$centroid$x[1]
-      Centroid_y <- dor_data$features$centroid$y[1]
+    
+    parcel.sf <- geojson_sf(dor_url)
+    parcel3857 <- parcel.sf %>% 
+      st_transform(crs = 3857)
+    
+    parcel_centroid.sf <-parcel3857 %>%
+      st_centroid()%>%
+      cbind(st_coordinates(.))
+    
+    if(nrow(parcel.sf)==1){
+      Centroid_x <- parcel_centroid.sf$X
+      Centroid_y <- parcel_centroid.sf$Y
+      
+      Parcel_OBJECTID <- parcel.sf$OBJECTID
+      PARCEL <- parcel.sf$PARCEL
+      ADDR_SOURCE <- parcel.sf$ADDR_STD
+    }else if(nrow(parcel.sf) > 1){
+      Centroid_x <- parcel_centroid.sf$X[1]
+      Centroid_y <- parcel_centroid.sf$Y[1]
+      
+      Parcel_OBJECTID <- parcel.sf$OBJECTID[1]
+      PARCEL <- parcel.sf$PARCEL[1]
+      ADDR_SOURCE <- parcel.sf$ADDR_STD[1]
     }else{
-      Parcel_OBJECTID <- "None Found"
-      PARCEL <- "None Found"
-      #Shape__Area <- "None Found"
-      #Shape__Length <- "None Found"
-      ADDR_SOURCE <- "None Found"
       Centroid_x <- "None Found"
       Centroid_y <- "None Found"
+      
+      Parcel_OBJECTID <- "None Found"
+      PARCEL <- "None Found"
+      ADDR_SOURCE <- "None Found"
     }
+
   }else{
     Parcel_OBJECTID <- "Null"
     PARCEL <- "Null"
-    #Shape__Area <- "Null"
-    #Shape__Length <- "Null"
     ADDR_SOURCE <- "Null"
     Centroid_x <- "Null"
     Centroid_y <- "Null"
@@ -161,6 +158,9 @@ function(addr){
       cbind(st_coordinates(.)) %>%
       rename(LNG = X.1, LAT = Y.1)
     
+    LNG<- DOR_latlng$LNG
+    LAT<- DOR_latlng$LAT
+    
     #Lower-left
     LL <- DOR_meters %>% 
       st_drop_geometry() %>% 
@@ -183,6 +183,8 @@ function(addr){
   }else{
     x0 = "Null"
     y0 = "Null"
+    LNG<- "Null"
+    LAT<- "Null"
   }
   
   #Request properties data----------------------------------
@@ -410,8 +412,6 @@ function(addr){
   if(is.null(Centroid_x) != TRUE && Centroid_x != "Null" && Centroid_x != "None Found"){
     #Request nearby properties data (including opa_account_num & Parcel_Id)
     base_near_prop <- "https://phl.carto.com/api/v2/sql?q=SELECT%20*%20FROM%20opa_properties_public%20WHERE%20ST_DWithin(the_geom::geography,%20ST_GeographyFromText(%27POINT("
-    LNG<- DOR_latlng$LNG
-    LAT<- DOR_latlng$LAT
     end_near_prop <- ")%27),%2050)"
     near_prop_url <- paste(base_near_prop, LNG,"%20" ,LAT, end_near_prop, sep="")
   
@@ -422,7 +422,7 @@ function(addr){
       data.frame(response = c("No nearby parcel is found because the location of this parcel is unknown"))     
   }
   
-  if(length(tidy_res_near_prop$rows)!=0){
+  if(is.null(Centroid_x) != TRUE && Centroid_x != "Null" && Centroid_x != "None Found" && length(tidy_res_near_prop$rows)!=0){
     near_prop <- tidy_res_near_prop$rows %>%
       data.frame() %>%
       dplyr::select(cartodb_id, parcel_number, registry_number, total_area, year_built, zoning, category_code, interior_condition) %>%
@@ -496,12 +496,17 @@ function(addr){
       drop_na(x)%>%
       st_as_sf(coords = c("x","y"), crs = 3857)
     
+    near_prop_latlng <- near_prop.sf %>%
+      st_transform(crs = 4326) %>%
+      cbind(st_coordinates(.)) %>%
+      rename(LNG = X, LAT = Y)
+    
     # Nearby L&I violation---------------------------------
-    for (i in 1:nrow(near_prop)) {
+    for (i in 1:nrow(near_prop_latlng)) {
       base_url <- "https://phl.carto.com/api/v2/"
       endpoint <- "sql"
       query    <- c("?q=SELECT%20*%20FROM%20violations%20WHERE%20opa_account_num%20=%20")
-      opa_num  <- paste0("%27",near_prop$opa_account_num[[i]],"%27")
+      opa_num  <- paste0("%27",near_prop_latlng$opa_account_num[[i]],"%27")
       url <- paste(base_url, endpoint, query, opa_num, sep="")
       response <- httr::GET(url)
       tidy_res <- httr::content(response, simplifyVector=TRUE)
@@ -511,25 +516,25 @@ function(addr){
           vio_code <-  tidy_res$rows$violationcode
           vio_title <- tidy_res$rows$violationcodetitle
           
-          near_prop$vio_code[[i]] <- vio_code
-          near_prop$vio_title[[i]] <- vio_title
+          near_prop_latlng$vio_code[[i]] <- vio_code
+          near_prop_latlng$vio_title[[i]] <- vio_title
         
           #cat("Address",i,vio_code, vio_title, "\n")
           }else{
-          near_prop$vio_code[[i]] <- "NO CODE VIOLATION"
-          near_prop$vio_title[[i]] <- "NO CODE VIOLATION"
+          near_prop_latlng$vio_code[[i]] <- "NO CODE VIOLATION"
+          near_prop_latlng$vio_title[[i]] <- "NO CODE VIOLATION"
           #cat("Address",i,"NO CODE VIOLATION\n")
         }
       }
       else{
-        near_prop$vio_code[[i]] <- "NO RESPONSE"
-        near_prop$vio_title[[i]] <- "NO RESPONSE"
+        near_prop_latlng$vio_code[[i]] <- "NO RESPONSE"
+        near_prop_latlng$vio_title[[i]] <- "NO RESPONSE"
         #cat("Address",i,"NO RESPONSE\n")
       }
     }
     
   }else{
-    near_prop <- 
+    near_prop_latlng <- 
       data.frame(response = c("No parcel is found within 50 meters"))     
   }
   
@@ -538,10 +543,10 @@ function(addr){
     data.frame(Address = c(addr),               
              Opa_account_num = c(opa_output), 
              Parcel_Id= c(Parcel_Id),
-             Parcel_centroid_lat = c(x0),
-             Parcel_centroid_lng = c(y0)
-             #Parcel_shape__Area = c(Shape__Area),
-             #Parcel_Shape__Length = c(Shape__Length)
+             Parcel_centroid_lat = c(LAT),
+             Parcel_centroid_lng = c(LNG),
+             X = c(x0),
+             Y = c(y0)
   )
   
   properties_df <-
@@ -577,11 +582,13 @@ function(addr){
   
   
   res <- list(#status = "SUCCESS", code = "200", 
-              parcel_df = parcel_df, properties_df= properties_df,
+              parcel_df = parcel_df, 
+              parcel_geometry = (parcel3857),
+              properties_df= properties_df,
               violation_df = violation_df,
               #census_df= census_df, 
               request311_within100m = Request311,
               request311.nn5= request311,
-              nearby_parcel_df = near_prop
+              nearby_parcel_df = near_prop_latlng
               )
 }
