@@ -1,14 +1,14 @@
 # plumber.R
 
-#* Get the information for an input address as well as its nearby parcels
+#* A Fire Response Situational Awareness API
 #* @param addr Input address
-#* @get /Parcel_Information
+#* @get /parcel_info
+#* @serializer json list(digits = 14)
 function(addr){
   #addr = "1200%20W%20VENANGO%20ST"
   #addr = "7701%20%20LINDBERGH%20BLVD"
   #addr = "4054 1/2%20LANCASTER%20AV"
   #addr = "RandomInput"
-  
   library(tidyverse)
   library(sf)
   library(geojsonsf)
@@ -87,7 +87,8 @@ function(addr){
     
     parcel.sf <- geojson_sf(dor_url)
     parcel3857 <- parcel.sf %>% 
-      st_transform(crs = 3857)
+      st_transform(crs = 3857) %>%
+      dplyr::select(OBJECTID, geometry)
     
     parcel_centroid.sf <-parcel3857 %>%
       st_centroid()%>%
@@ -122,6 +123,7 @@ function(addr){
     ADDR_SOURCE <- "Null"
     Centroid_x <- "Null"
     Centroid_y <- "Null"
+    parcel.sf <- "Null"
   }
   
   
@@ -211,14 +213,22 @@ function(addr){
     
     total_livable_area <- tidy_res_prop$rows$total_livable_area
     total_area <-  tidy_res_prop$rows$total_area
+    ##is RMI/is CMX2
     zoning <- tidy_res_prop$rows$zoning
+    isRM1<-ifelse(is.na(zoning)|zoning!='RM1',0,1)
+    isCMX2<-ifelse(is.na(zoning)|zoning!='CMX2',0,1)
     category_code <- tidy_res_prop$rows$category_code
+    ##is_com/is_hot
     category <- case_when(category_code == 1 ~ "Residential",
                           category_code == 2 ~ "Hotels and Apartments",
                           category_code == 3 ~ "Store with Dwelling",
                           category_code == 4 ~ "Commercial",
                           category_code == 5 ~ "Industrial",
                           category_code == 6 ~ "Vacant Land")
+    iscom<-ifelse(category=='Commercial',1,0)
+    ishotel<-ifelse(category=='Hotels and Apartments',1,0)
+  
+    ## is sealed/is below
     interior_condition <- tidy_res_prop$rows$interior_condition
     interior <- case_when(interior_condition == 0 ~ "Not Applicable",
                           interior_condition == 2 ~ "New/Rehabbed",
@@ -227,6 +237,8 @@ function(addr){
                           interior_condition == 5 ~ "Below Average",
                           interior_condition == 6 ~ "Vacant",
                           interior_condition == 7 ~ "Sealed/Structurally Compromised")
+    issealed<-ifelse(is.na(interior)|interior!='Sealed / Structurally Compromised',0,1)
+    isbelow<-ifelse(is.na(interior)|interior!='Below Average',0,1)
   }else{
     exterior_condition <-  "NO RESPONSE"
     fireplaces <-  "NO RESPONSE"
@@ -257,16 +269,71 @@ function(addr){
   tidy_res <- httr::content(response, simplifyVector=TRUE)
   
   if (response$status_code != 400){
-    if(length(tidy_res$rows$violationcode)==1){
-      vio_code <-  tidy_res$rows$violationcode
-      vio_title <- tidy_res$rows$violationcodetitle
+    if(length(tidy_res$rows$violationcode)>=1){
+      violation <- tidy_res$rows%>%
+        data.frame()%>%
+        dplyr::select(violationcode, violationcodetitle,opa_account_num)
+      ##unsafe&unequip variables
+      violation <-mutate(violation, violation_summary = case_when(
+        str_detect(violationcodetitle, "UNSAFE STRUCTURE") == TRUE | str_detect(violationcodetitle, "UNSAFE CONDITIONS") == TRUE | str_detect(violationcodetitle, "INTERIOR UNSAFE") == TRUE | str_detect(violationcodetitle, "VACANT PROP UNSAFE") == TRUE ~ "UNSAFE STRUCTURE",
+        str_detect(violationcode, "FC-13") == TRUE | str_detect(violationcode, "FC-907.3") == TRUE | 
+          violationcodetitle == "ELECTRICAL -FIRE DAMAGED"~ "PROBLEMS WITH FIRE EQUIPTEMENT",
+        TRUE ~ "OTHERS"))
+      ## violation count
+      violation_count<-violation%>% 
+        group_by(opa_account_num)%>%
+        summarize(viol_count=n())
+      violations_clean <- left_join(violation,violation_count, by='opa_account_num')
+      ## related violation
+      violation_count_related<-violation %>%
+        filter(violation_summary == 'UNSAFE STRUCTURE'|violation_summary =='PROBLEMS WITH FIRE EQUIPTEMENT')%>%
+        group_by(opa_account_num) %>%
+        summarize(related_violation=n())
+      violations_clean <- left_join(violations_clean,violation_count_related, by='opa_account_num')
+      violations_clean$related_violation<-ifelse(!is.na(violations_clean$related_violation),
+                                                 violations_clean$related_violation, 0)
+      ##ext/int
+      violations_clean$exterior<-ifelse(grepl("EXT", violations_clean$violationcodetitle), 1,0)
+      violations_clean$interior<-ifelse(grepl("INT", violations_clean$violationcodetitle), 1,0)
+      violations_summed <-
+        violations_clean %>%
+        group_by(opa_account_num) %>%
+        summarise(had_extvio = sum(exterior),
+                  had_intvio = sum(interior))
+      violation_df<-left_join(violations_clean,violations_summed, by='opa_account_num')
+      
+      ##isunsafe/noequip
+      violation_distinct <- violation_df %>% 
+        distinct(opa_account_num,violationcodetitle, .keep_all = TRUE)
+      violation_unsafe = violation_distinct %>%filter(violation_summary=="UNSAFE STRUCTURE")
+      violation_equip = violation_distinct %>%filter(violation_summary=="PROBLEMS WITH FIRE EQUIPTEMENT")
+      
+      violation_unsafe <- violation_unsafe %>% 
+        distinct(opa_account_num,violation_summary, .keep_all = TRUE)
+      violation_equip <- violation_unsafe %>% 
+        distinct(opa_account_num,violation_summary, .keep_all = TRUE)
+      violation_unsafe_sub <- subset(violation_unsafe,select=c(violation_summary,opa_account_num))
+      violation_unsafe_sub  <- rename(violation_unsafe_sub, vio_unsafe = violation_summary)
+      violation_equip_sub <- subset(violation_equip,select=c(violation_summary,opa_account_num))
+      violation_equip_sub <- rename(violation_equip_sub, vio_equip = violation_summary)
+      
+      violation_df <- left_join(violation_df,violation_unsafe_sub,by='opa_account_num')
+      violation_df <- left_join(violation_df,violation_equip_sub,by='opa_account_num')
+      violation_df$isunsafe<-ifelse(is.na(violation_df$vio_unsafe),0,1)
+      violation_df$noequip<-ifelse(is.na(violation_df$vio_equip),0,1)
       }else{
       vio_code <- "NO CODE VIOLATION"
       vio_title <- "NO CODE VIOLATION"
+      violation_df <-
+        data.frame(vio_code = c(vio_code),
+                   vio_title = c(vio_title))
     }
   }else{
     vio_code <- "NO RESPONSE"
     vio_title <- "NO RESPONSE"
+    violation_df <-
+      data.frame(vio_code = c(vio_code),
+                 vio_title = c(vio_title))
   }
   
   #Request 311 data(within 100m)----------------------------------
@@ -538,11 +605,17 @@ function(addr){
       data.frame(response = c("No parcel is found within 50 meters"))     
   }
   
+  # Make Prediction-----------------------------------------
+  #fire_model <- readr::read_rds("xxx.rds")
+  
+  
   #Output-----------------------------------------------
   parcel_df <- 
-    data.frame(Address = c(addr),               
+    data.frame(Input = c(addr),
              Opa_account_num = c(opa_output), 
              Parcel_Id= c(Parcel_Id),
+             ADDR_SOURCE = c(ADDR_SOURCE),
+             PARCEL = c(PARCEL),
              Parcel_centroid_lat = c(LAT),
              Parcel_centroid_lng = c(LNG),
              X = c(x0),
@@ -565,11 +638,18 @@ function(addr){
                number_of_bathrooms = c(number_of_bathrooms),
                number_of_bedrooms = c(number_of_bedrooms),
                number_of_rooms = c(number_of_rooms),
-               year_built = c(year_built))
+               year_built = c(year_built),
+               isRM1 = c(isRM1),
+               isCMX2 = c(isCMX2),
+               iscom = c(iscom),
+               ishotel = c(ishotel),
+               issealed = c(issealed),
+               isbelow = c(isbelow))
+
   
-  violation_df <-
+  "violation_df <-
     data.frame(vio_code = c(vio_code),
-               vio_title = c(vio_title))
+               vio_title = c(vio_title))"
   
   #census_df <-
   #  data.frame(census_tract = c(census_tract),
@@ -583,7 +663,7 @@ function(addr){
   
   res <- list(#status = "SUCCESS", code = "200", 
               parcel_df = parcel_df, 
-              parcel_geometry = (parcel3857),
+              parcel_geometry = parcel.sf,
               properties_df= properties_df,
               violation_df = violation_df,
               #census_df= census_df, 
