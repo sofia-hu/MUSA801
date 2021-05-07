@@ -1,0 +1,23 @@
+# example Dockerfile to expose a plumber service
+
+#FROM trestletech/plumber
+FROM rstudio/plumber
+
+# install dependencies
+RUN apt-get update && apt-get install -y \
+	libudunits2-dev \
+	libgdal-dev
+
+# copy function
+RUN mkdir /data
+RUN mkdir /__docs__
+COPY api.R /data
+COPY fire_risk_model_v2.rds /data
+COPY lagfire.csv /data
+WORKDIR /data
+
+# plumb and run server
+EXPOSE 8000
+ENTRYPOINT ["R", "-e", \
+    "pr <- plumber::plumb('/data/api.R'); \
+    pr$run(host='0.0.0.0', port=8000)"]

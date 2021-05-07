@@ -369,7 +369,7 @@ function(addr){
     Request311 <- data.frame(Response=c("No 311 request is found because the location of this parcel is unknown"))
   }
   
-  #Request 311 data(nn5)--------------------------------
+  #Request 311 data(last 2 years, nn5)--------------------------------
   if(is.null(Centroid_x) != TRUE && Centroid_x != "Null" && Centroid_x != "None Found"){
     base311 = ("https://phl.carto.com/api/v2/sql?q=SELECT%20*%20FROM%20public_cases_fc%20WHERE%20")
     where = paste("requested_datetime%20%3E=%20%27",Sys.Date()-730,
@@ -387,7 +387,7 @@ function(addr){
         data.frame() %>%
         dplyr::select(service_request_id, status, service_name, service_code, requested_datetime, updated_datetime, address, lat, lon)
     }else{
-      request311 <- data.frame(Response=c("No relevant 311 request in the past year"))
+      request311 <- data.frame(Response=c("No relevant 311 request in the past 2 year"))
     }
     
     request311.sf <- request311%>%
@@ -436,43 +436,73 @@ function(addr){
   }else{
     request311 <- data.frame(Response=c("No 311 request is found because the location of this parcel is unknown"))
   }
+
+  #Request 311 data(last year, nn5)--------------------------------
+  if(is.null(Centroid_x) != TRUE && Centroid_x != "Null" && Centroid_x != "None Found"){
+    base3111 = ("https://phl.carto.com/api/v2/sql?q=SELECT%20*%20FROM%20public_cases_fc%20WHERE%20")
+    where = paste("requested_datetime%20%3E=%20%27",Sys.Date()-365,
+                  "%27%20AND%20requested_datetime%20%3C%20%27", Sys.Date(), sep="")
+    
+    url3111 <- paste(base3111, where, sep="")
+    
+    response3111 <- httr::GET(url3111)
+    tidy_res3111 <- httr::content(response3111, simplifyVector=TRUE)
+    
+    
+    if(length(tidy_res3111$rows) != 0){
+      request3111 <- tidy_res3111$rows %>%
+        data.frame() %>%
+        dplyr::select(service_request_id, status, service_name, service_code, requested_datetime, updated_datetime, address, lat, lon)
+    }else{
+      request3111 <- data.frame(Response=c("No 311 request obtained"))
+    }
+    
+    request3111.sf <- request3111%>%
+      drop_na(lat)%>%
+      st_as_sf(coords = c("lon","lat"), crs = 4326)%>%
+      st_transform(crs=3857)
+    
+    request3111.nn5 =  c(nn_function(st_coordinates(ParcelGeom),st_coordinates(request3111.sf), 5))
+  }else{
+    request3111.nn5 = "No 311 request is found because the location of this parcel is unknown"
+  }
   
-  #Request census data---------------------------------
-  #census_api_key("bdc91afe8f1e229bfd29314d696345b8365818b6", overwrite = TRUE)
   
-  #censusdat<- 
-  #  get_acs(geography = "tract",
-  #          variables = c(pop="B01003_001",
-  #                        whitepop="B01001A_001",
-  #                        medinc="B06011_001",
-  #                        blackpop = "B02001_003"),
-  #          year=2019,
-  #          state = "PA", 
-  #          geometry = TRUE, 
-  #          county="Philadelphia",
-  #          output = "wide")
+  #Request census data-----------------------------------
+  census_api_key("bdc91afe8f1e229bfd29314d696345b8365818b6", overwrite = TRUE)
   
-  #censusdat.sf <- censusdat %>%
-  #  st_transform( crs = 3857)
+  censusdat<- 
+    get_acs(geography = "tract",
+            variables = c(pop="B01003_001",
+                          whitepop="B01001A_001",
+                          medinc="B06011_001",
+                          blackpop = "B02001_003"),
+            year=2019,
+            state = "PA", 
+            geometry = TRUE, 
+            county="Philadelphia",
+            output = "wide")
   
-  #if(is.null(Centroid_x) != TRUE && Centroid_x != "Null" && Centroid_x != "None Found"){
-  #  census <- 
-  #    st_join(ParcelGeom, censusdat.sf,
-  #            join=st_intersects,
-  #            left = TRUE,
-  #            largest = FALSE)
+  censusdat.sf <- censusdat %>%
+    st_transform( crs = 3857)
   
-  #  population <- census$popE
-  #  whitepop <- census$whitepopE
-  #  blackpop <- census$blackpopE
-  #  medianIncome <- census$medincE
-  #}else{
-  #  population <- "unknown"
-  #  whitepop <- "unknown"
-  #  blackpop <- "unknown"
+  if(is.null(Centroid_x) != TRUE && Centroid_x != "Null" && Centroid_x != "None Found"){
+    census <- 
+      st_join(ParcelGeom, censusdat.sf,
+              join=st_intersects,
+              left = TRUE,
+              largest = FALSE)
   
-  #  medianIncome <- "unknown"
-  #}
+    population <- census$popE
+    whitepop <- census$whitepopE
+    blackpop <- census$blackpopE
+    medianIncome <- census$medincE
+  }else{
+    population <- "unknown"
+    whitepop <- "unknown"
+    blackpop <- "unknown"
+    medianIncome <- "unknown"
+  }
   
   
   #Nearby Parcel---------------------------------------
@@ -508,6 +538,7 @@ function(addr){
                                   interior_condition == 7 ~ "Sealed/Structurally Compromised",
                                   is.na(interior_condition) == TRUE ~ "None Found")) %>%
       rename(Parcel_Id = registry_number, opa_account_num = parcel_number) 
+    
     
     #Request nearby parcels' geometry-----------------------
     for (i in 1:nrow(near_prop)) {
@@ -586,17 +617,14 @@ function(addr){
           near_prop_latlng$vio_code[[i]] <- vio_code
           near_prop_latlng$vio_title[[i]] <- vio_title
         
-          #cat("Address",i,vio_code, vio_title, "\n")
           }else{
           near_prop_latlng$vio_code[[i]] <- "NO CODE VIOLATION"
           near_prop_latlng$vio_title[[i]] <- "NO CODE VIOLATION"
-          #cat("Address",i,"NO CODE VIOLATION\n")
         }
       }
       else{
         near_prop_latlng$vio_code[[i]] <- "NO RESPONSE"
         near_prop_latlng$vio_title[[i]] <- "NO RESPONSE"
-        #cat("Address",i,"NO RESPONSE\n")
       }
     }
     
@@ -605,9 +633,37 @@ function(addr){
       data.frame(response = c("No parcel is found within 50 meters"))     
   }
   
-  # Make Prediction-----------------------------------------
-  #fire_model <- readr::read_rds("xxx.rds")
+  # Load lagfire--------------------------------------------
+  lagfire <- read_csv("lagfire.csv")
+  lagfire <- lagfire %>%
+    filter(opa_account_num = opa_account_num)
   
+  if(nrow(lagfire)!=0){
+    lagfire.nn5 = lagfire$nn5
+  }else{
+    lagfire.nn5 = "Null"
+  }
+
+  # Make Prediction-----------------------------------------
+  fire_model <- readr::read_rds("fire_risk_model_v2.rds")
+  
+  if(is_numeric(lagfire.nn5)& is_numeric(iscom)& is_numeric(ishotel)& is_numeric(isRM1)
+     &is_numeric(isCMX2)& is_numeric(issealed)& is_numeric(isbelow)& is_numeric(isunsafe)
+     &is_numeric(noequip)& is_numeric(request3111.nn5)& is_numeric(light.nn5)& is_numeric(heat.nn5)
+     &is_numeric(fire311.nn5)& is_numeric(infestation.nn5)& is_numeric(Detector.nn5)& is_numeric(Dangerous.nn5)
+     &is_numeric(census_tract)& is_numeric(Total_Pop)& is_numeric(Med_Inc)& is_numeric(Med_Age)
+     &is_numeric(Percent_White)& is_numeric(viol_count)& is_numeric(related_violation)& is_numeric(had_extvio)
+     &is_numeric(had_intvio)==TRUE
+  ){
+    risk <- pred_risk (lagfire.nn5,iscom,ishotel,isRM1,isCMX2, issealed, isbelow, 
+               isunsafe, noequip,request3111.nn5, light.nn5, heat.nn5,
+               fire311.nn5, infestation.nn5, Detector.nn5, Dangerous.nn5, 
+               census_tract, Total_Pop, Med_Inc,Med_Age, Percent_White,
+               viol_count,related_violation,had_extvio, had_intvio)
+  }else{
+    risk <- "Unknown"
+  }
+
   
   #Output-----------------------------------------------
   parcel_df <- 
@@ -621,6 +677,9 @@ function(addr){
              X = c(x0),
              Y = c(y0)
   )
+  
+  prediction_df <-
+    data.frame(Relative_risk = c(risk))
   
   properties_df <-
     data.frame(total_area = c(total_area),
@@ -646,27 +705,22 @@ function(addr){
                issealed = c(issealed),
                isbelow = c(isbelow))
 
-  
-  "violation_df <-
-    data.frame(vio_code = c(vio_code),
-               vio_title = c(vio_title))"
-  
-  #census_df <-
-  #  data.frame(census_tract = c(census_tract),
-  #             census_block = c(census_block),
-  #             population = c(population),
-  #             white_population = c(whitepop),
-  #             black_population = c(blackpop),
-  #             median_income = c(medianIncome)
-  #             )
+  census_df <-
+    data.frame(census_tract = c(census_tract),
+               census_block = c(census_block),
+               population = c(population),
+               white_population = c(whitepop),
+               black_population = c(blackpop),
+               median_income = c(medianIncome)
+               )
   
   
-  res <- list(#status = "SUCCESS", code = "200", 
-              parcel_df = parcel_df, 
+  res <- list(parcel_df = parcel_df, 
+              prediction = prediction_df,
               parcel_geometry = parcel.sf,
               properties_df= properties_df,
               violation_df = violation_df,
-              #census_df= census_df, 
+              census_df= census_df, 
               request311_within100m = Request311,
               request311.nn5= request311,
               nearby_parcel_df = near_prop_latlng
